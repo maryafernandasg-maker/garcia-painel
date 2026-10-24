@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Garcia Marketing · Painel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Jost:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="auth">
+  <div id="auth"></div>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="brand-name">Garcia Marketing</span></div>
+    <button type="button" id="menuBtn" aria-controls="side" aria-expanded="false">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+      Menu
+    </button>
+  </header>
+
+  <aside class="side" id="side">
+    <div class="brand">
+      <span class="brand-name">Garcia Marketing</span>
+      <span class="brand-sub">Painel da agência</span>
+    </div>
+    <div class="client-pick">
+      <label for="clientSelect">Cliente (tráfego)</label>
+      <select id="clientSelect" disabled><option>Carregando…</option></select>
+      <span class="hint" id="clientHint"></span>
+    </div>
+    <nav class="nav" id="nav" aria-label="Seções"></nav>
+    <div class="side-foot-wrap"><div class="side-foot"><span class="dot wait" id="dbDot"></span><span id="dbText">Conectando ao banco…</span></div><div class="user-box" id="userBox"></div></div>
+  </aside>
+
+  <main class="main"><div class="main-inner" id="view" aria-live="polite"></div></main>
+</div>
+<div id="layer"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/pdfmake.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/fonts.js"></script>
+  <script src="js/pdf.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/views.js"></script>
+  <script src="js/dias.js"></script>
+  <script src="js/agencia.js"></script>
+  <script src="js/boot.js"></script>
+</body>
+</html>
