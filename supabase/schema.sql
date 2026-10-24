@@ -27,10 +27,10 @@ drop policy if exists "docs: criar os próprios"    on public.docs;
 drop policy if exists "docs: alterar os próprios"  on public.docs;
 drop policy if exists "docs: excluir os próprios"  on public.docs;
 
-create policy "docs: ler os próprios"     on public.docs for select to authenticated using (owner = auth.uid());
-create policy "docs: criar os próprios"   on public.docs for insert to authenticated with check (owner = auth.uid());
-create policy "docs: alterar os próprios" on public.docs for update to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
-create policy "docs: excluir os próprios" on public.docs for delete to authenticated using (owner = auth.uid());
+create policy "docs: ler os próprios"     on public.docs for select to authenticated using (owner = (select auth.uid()));
+create policy "docs: criar os próprios"   on public.docs for insert to authenticated with check (owner = (select auth.uid()));
+create policy "docs: alterar os próprios" on public.docs for update to authenticated using (owner = (select auth.uid())) with check (owner = (select auth.uid()));
+create policy "docs: excluir os próprios" on public.docs for delete to authenticated using (owner = (select auth.uid()));
 
 -- visitantes sem login não têm nenhuma permissão na tabela
 revoke all on public.docs from anon;
