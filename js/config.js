@@ -3,6 +3,6 @@
 // NUNCA coloque aqui a service_role key ou a secret key.
 window.GARCIA_CONFIG = {
   supabaseUrl: "https://cdcchzizdwhobetzjckc.supabase.co",
-  supabaseKey: "",   // publishable key (sb_publishable_...) ou anon public key
+  supabaseKey: "sb_publishable_ybYwa8YeGJiQaRAqKyzJCA_HBQFJaAx",   // publishable key (sb_publishable_...) ou anon public key
   nome: "Marya",     // como o painel chama você na saudação
 };
