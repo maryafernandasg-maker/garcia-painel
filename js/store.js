@@ -30,7 +30,7 @@ const Store = (() => {
 
   /* ---------- consultas acompanhadas (recarregadas depois de cada gravação) ---------- */
   const watches = {}; // key -> {col, field, value, apply}
-  const pending = new Set(); let timer = null;
+  const pending = new Set(); let timer = null; let waiting = [];
   async function run(w) {
     let q = sb.from("docs").select("id,data").eq("collection", w.col);
     if (w.field) q = q.eq(`data->>${w.field}`, String(w.value));
@@ -46,11 +46,13 @@ const Store = (() => {
     pending.add(col);
     clearTimeout(timer);
     return new Promise(res => {
+      waiting.push(res);
       timer = setTimeout(async () => {
         const cols = new Set(pending); pending.clear();
+        const done = waiting; waiting = [];
         try { await Promise.all(Object.values(watches).filter(w => cols.has(w.col)).map(run)); state.error = null; }
         catch (e) { state.error = message(e); }
-        emit(); res();
+        emit(); done.forEach(r => r());
       }, 30);
     });
   }

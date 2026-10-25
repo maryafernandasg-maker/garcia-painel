@@ -4,7 +4,7 @@
    todos os números vêm do núcleo de cálculo, igual às telas.
    ===================================================================== */
 const PdfReport = (() => {
-  const C = { dark: "#2B1A12", brown: "#6F4A31", mid: "#8B5E3C", beige: "#D8C3A5", light: "#F4EADF", paper: "#FFFCF8", text: "#2B1A12", muted: "#7A6455", line: "#E4D4C0", ok: "#3D7350", bad: "#A3392A" };
+  const C = { dark: "#711C1C", brown: "#711C1C", mid: "#711C1C", beige: "#C7D6E8", light: "#F3E5D1", paper: "#FFFBF5", text: "#2A1414", muted: "#7A6260", line: "#E9D8C1", ok: "#3D7350", bad: "#B02E26" };
   const FONTS = {
     Jost: { normal: "Jost-Regular.ttf", bold: "Jost-SemiBold.ttf", italics: "Jost-Regular.ttf", bolditalics: "Jost-SemiBold.ttf" },
     JostMedium: { normal: "Jost-Medium.ttf", bold: "Jost-SemiBold.ttf", italics: "Jost-Medium.ttf", bolditalics: "Jost-SemiBold.ttf" },

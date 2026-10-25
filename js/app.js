@@ -537,7 +537,7 @@ function openOverlay(node, center) {
   return close;
 }
 
-function confirmDialog({ title, text, confirmLabel, onConfirm, plan }) {
+function confirmDialog({ title, text, confirmLabel, onConfirm, plan, busyLabel }) {
   const msg = h("p", null, plan ? "Verificando o que será apagado…" : text);
   const err = h("p", { class: "err-text", hidden: true });
   const btn = h("button", { class: "btn btn-danger", type: "button", disabled: !!plan }, confirmLabel);
@@ -549,7 +549,7 @@ function confirmDialog({ title, text, confirmLabel, onConfirm, plan }) {
   if (plan) plan().then(p => { planned = p; msg.textContent = p.text; btn.disabled = false; btn.focus(); })
     .catch(e => { msg.textContent = Store.message(e); });
   btn.addEventListener("click", async () => {
-    btn.disabled = true; btn.textContent = "Excluindo…"; err.hidden = true;
+    btn.disabled = true; btn.textContent = busyLabel || "Excluindo…"; err.hidden = true;
     try { const done = await onConfirm(planned); close(); toast(done || "Feito."); }
     catch (e) { err.hidden = false; err.textContent = Store.message(e); btn.disabled = false; btn.textContent = confirmLabel; }
   });
@@ -896,10 +896,10 @@ function restorePanel() {
     actions.append(
       h("button", { class: "btn btn-primary", type: "button", id: "restoreGo", disabled: !canWrite(), onclick: () => confirmDialog({
         title: "Restaurar o backup?", text: `Serão gravados ${b.plano.length} registros. Os que já existem com o mesmo identificador serão substituídos pela versão do backup.`,
-        confirmLabel: "Restaurar agora",
+        confirmLabel: "Restaurar agora", busyLabel: "Restaurando…",
         onConfirm: async () => {
           let i = 0;
-          for (const [col, id, data] of b.plano) { await Store.put(col, id, data); i++; if (i % 10 === 0) setStatus(`Restaurando… ${i} de ${b.plano.length}`); }
+          for (let k = 0; k < b.plano.length; k += 50) { const lote = b.plano.slice(k, k + 50); await Store.putMany(lote); i += lote.length; setStatus(`Restaurando… ${i} de ${b.plano.length}`); }
           RESTORE.b = null; RESTORE.status = `Backup restaurado: ${i} registros gravados.`;
           return "Backup restaurado.";
         },

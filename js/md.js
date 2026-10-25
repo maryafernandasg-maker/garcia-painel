@@ -3,7 +3,7 @@
    TEXTO FORMATADO — subconjunto de Markdown, montado direto no DOM (sem innerHTML)
    Títulos (#, ##, ###), listas (-, 1.), caixinhas (- [ ] / - [x] / ☐ / ☑),
    tabelas (| a | b |), citação (>), linha (---), bloco de código (```),
-   **negrito**, [link](https://…) e links soltos.
+   **negrito**, [link](https://…), links soltos e quebra de linha (<br>).
    ===================================================================== */
 const MD = (() => {
   const CHECK = /^(\s*)(?:[-*]\s+)?(\[( |x|X)\]|☐|☑)\s?(.*)$/;
@@ -12,11 +12,12 @@ const MD = (() => {
 
   function inline(text) {
     const out = [];
-    const re = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s)<>]+)/g;
+    const re = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s)<>]+)|(<br\s*\/?>)/g;
     let last = 0, m;
     while ((m = re.exec(text))) {
       if (m.index > last) out.push(text.slice(last, m.index));
-      if (m[1]) out.push(h("strong", null, m[1]));
+      if (m[5]) out.push(h("br"));
+      else if (m[1]) out.push(h("strong", null, m[1]));
       else if (m[2]) { const u = safeUrl(m[3]); out.push(u ? h("a", { href: u, target: "_blank", rel: "noopener noreferrer" }, m[2]) : m[2]); }
       else { const u = m[4].replace(/[.,;:]+$/, ""); out.push(h("a", { href: u, target: "_blank", rel: "noopener noreferrer" }, u.replace(/^https?:\/\//, "").slice(0, 60) + (u.length > 68 ? "…" : ""))); if (u.length < m[4].length) out.push(m[4].slice(u.length)); }
       last = re.lastIndex;
@@ -58,7 +59,12 @@ const MD = (() => {
       const hm = /^(#{1,4})\s+(.*)$/.exec(line);
       if (hm) { flushPara(); closeList(); root.append(h(["h2", "h3", "h4", "h5"][hm[1].length - 1], { class: "md-h" }, inline(hm[2]))); continue; }
       if (/^(-{3,}|_{3,}|\*{3,})$/.test(line)) { flushPara(); closeList(); root.append(h("hr")); continue; }
-      if (line.startsWith(">")) { flushPara(); closeList(); root.append(h("blockquote", null, inline(line.replace(/^>\s?/, "")))); continue; }
+      if (line.startsWith(">")) {
+        flushPara(); closeList();
+        const prev = root.lastElementChild, p = h("p", null, inline(line.replace(/^>\s?/, "")));
+        if (prev && prev.tagName === "BLOCKQUOTE" && /^\s*>/.test(lines[i - 1] || "")) prev.append(p); else root.append(h("blockquote", null, p));
+        continue;
+      }
       if (isCheck(line)) {
         flushPara();
         const m = CHECK.exec(line), done = m[2] === "☑" || /x/i.test(m[3] || "");
