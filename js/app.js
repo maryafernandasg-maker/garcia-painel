@@ -22,12 +22,14 @@ const SECTIONS = [
   { group: "Agência", items: [
     { id: "inicio", label: "Início" },
     { id: "clientes", label: "Clientes" },
-    { id: "financeiro", label: "Financeiro", stage: 4 },
-    { id: "processos", label: "Processos", stage: 5 },
+    { id: "comercial", label: "Comercial" },
+    { id: "financeiro", label: "Financeiro" },
+    { id: "processos", label: "Processos" },
   ]},
   { group: "Social media", items: [
-    { id: "social", label: "Calendário editorial", stage: 3 },
-    { id: "producao", label: "Produção", stage: 3 },
+    { id: "social", label: "Calendário editorial" },
+    { id: "producao", label: "Produção" },
+    { id: "planejamento", label: "Planejamento do mês" },
   ]},
   { group: "Tráfego", cliente: true, items: [
     { id: "visao", label: "Visão geral" },
@@ -92,7 +94,7 @@ function renderClientPicker() {
   const list = clientesOrdenados();
   if (Store.state.clientes == null) { sel.disabled = true; sel.replaceChildren(h("option", null, Store.state.status === "unavailable" ? "Sem banco" : "Carregando…")); hint.textContent = ""; return; }
   if (!list.length) { sel.disabled = true; sel.replaceChildren(h("option", null, "Nenhum cliente")); hint.textContent = "Cadastre em Clientes."; return; }
-  if (!list.some(c => c.id === UI.clienteId)) { UI.clienteId = (list.find(c => c.status === "ativo") || list[0]).id; Prefs.set("cliente", UI.clienteId); }
+  if (!list.some(c => c.id === UI.clienteId)) { UI.clienteId = (list.find(c => c.status === "ativo" && !c.interno) || list.find(c => c.status === "ativo") || list[0]).id; Prefs.set("cliente", UI.clienteId); }
   sel.disabled = false;
   sel.replaceChildren(...[["ativo", "Ativos"], ["pausado", "Pausados"], ["encerrado", "Encerrados"]].map(([st, label]) => {
     const items = list.filter(c => (c.status || "ativo") === st);
@@ -124,7 +126,7 @@ function render() {
   document.body.classList.toggle("auth", st === "login" || st === "config" || st === "connecting");
   if (st === "login" || st === "config" || st === "connecting") { renderAuth(st); return; }
   renderNav(); renderClientPicker(); syncWatches(); renderDbStatus(); renderUser();
-  const VIEWS = { inicio: viewInicio, financeiro: () => viewEmBreve("financeiro"), processos: () => viewEmBreve("processos"), social: () => viewEmBreve("social"), producao: () => viewEmBreve("producao"), visao: viewVisao, dias: viewDias, campanhas: viewCampanhasA, conjuntos: viewConjuntosA, anuncios: viewAnunciosA, funil: viewFunil,
+  const VIEWS = { inicio: viewInicio, comercial: viewComercial, financeiro: viewFinanceiro, processos: viewProcessos, social: viewSocial, producao: viewProducao, planejamento: viewPlanejamento, visao: viewVisao, dias: viewDias, campanhas: viewCampanhasA, conjuntos: viewConjuntosA, anuncios: viewAnunciosA, funil: viewFunil,
     analise: viewAnalise, lancamentos: viewLancar, relatorios: viewRelatorios, historico: viewHistorico, clientes: viewClientes, dados: viewDados };
   const body = (VIEWS[UI.view] || viewInicio)();
   document.getElementById("view").replaceChildren(...[dbBanner(), ...[].concat(body)].flat(Infinity).filter(Boolean));
@@ -717,6 +719,7 @@ function openClienteForm(c) {
         field("ticketMedio", "Ticket médio", h("div", { class: "prefix" }, h("span", null, "R$"), input("ticketMedio", { type: "text", inputmode: "decimal", value: Fmt.moneyInput(v.ticketMedioCentavos), placeholder: "0,00" })), "Opcional. Ajuda a interpretar o custo por resultado."),
         field("inicioGestao", "Início da gestão", input("inicioGestao", { type: "date", value: v.inicioGestao || "", max: Fmt.todayISO() }))),
       field("status", "Status", select("status", Domain.STATUS, v.status || "ativo"), "Clientes encerrados continuam com o histórico guardado."),
+      h("label", { class: "check" }, h("input", { type: "checkbox", name: "interno", value: "1", checked: !!v.interno }), h("span", null, "Perfil da própria agência (não entra na receita nem na contagem de clientes)")),
       h("div", { class: "form-section" }, "Contrato"),
       h("div", { class: "field", id: "f-servicos" }, h("span", { class: "flabel" }, "Serviços contratados"),
         h("div", { class: "checks" }, Object.entries(Domain.SERVICOS).map(([k, l]) => h("label", { class: "check" }, h("input", { type: "checkbox", name: "servicos", value: k, checked: (v.servicos || []).includes(k) }), h("span", null, l))))),
@@ -736,7 +739,7 @@ function openClienteForm(c) {
   form.addEventListener("submit", async e => {
     e.preventDefault();
     if (!canWrite()) { formErr.hidden = false; formErr.textContent = "O banco não está disponível. Nada foi salvo."; return; }
-    const fd = new FormData(form); const raw = Object.fromEntries(fd.entries()); raw.servicos = fd.getAll("servicos");
+    const fd = new FormData(form); const raw = Object.fromEntries(fd.entries()); raw.servicos = fd.getAll("servicos"); raw.interno = fd.has("interno");
     const res = Domain.validateCliente(raw, Store.state.clientes || [], c?.id);
     form.querySelectorAll(".field").forEach(f => f.classList.remove("invalid"));
     form.querySelectorAll(".err").forEach(el => { el.hidden = true; el.textContent = ""; });
@@ -759,7 +762,7 @@ function openClienteForm(c) {
   });
 }
 
-const NOMES_COLECAO = { relatorios: "relatórios", campanhas: "campanhas", conjuntos: "conjuntos", anuncios: "anúncios", resultados_comerciais: "resultados comerciais", analises: "análises", testes: "testes", diarios: "meses com dados diários", criativos: "imagens de criativos", instagram: "meses com dados do Instagram" };
+const NOMES_COLECAO = { relatorios: "relatórios", campanhas: "campanhas", conjuntos: "conjuntos", anuncios: "anúncios", resultados_comerciais: "resultados comerciais", analises: "análises", testes: "testes", diarios: "meses com dados diários", criativos: "imagens de criativos", instagram: "meses com dados do Instagram", financeiro: "lançamentos financeiros", tarefas: "tarefas", posts: "posts", planejamentos: "planejamentos", documentos: "documentos" };
 function confirmDeleteCliente(c) {
   const msg = h("p", null, "Verificando se há dados ligados a este cliente…");
   const btn = h("button", { class: "btn btn-danger", type: "button", disabled: true }, "Excluir cliente");
@@ -853,7 +856,7 @@ const ID_OK = /^(?!\.\.?$)[A-Za-z0-9_\-.~:@+]{1,200}$/;
 function lerBackup(obj) {
   if (!obj || typeof obj !== "object" || !obj.colecoes || typeof obj.colecoes !== "object") throw new Error("O arquivo não é um backup deste sistema.");
   const plano = [], contagem = {};
-  for (const col of [...Domain.COLLECTIONS, "tarefas", "financeiro", "recorrencias"]) {
+  for (const col of [...Domain.COLLECTIONS, ...Domain.AGENCIA]) {
     const arr = obj.colecoes[col];
     if (arr == null) continue;
     if (!Array.isArray(arr)) throw new Error(`A tabela “${col}” do backup está em formato inválido.`);
@@ -869,7 +872,7 @@ function lerBackup(obj) {
   return { plano, contagem, exportadoEm: obj.exportadoEm };
 }
 const RESTORE = { status: null, b: null };
-const RESTORE_NOMES = { clientes: "clientes", relatorios: "meses", campanhas: "campanhas", conjuntos: "conjuntos", anuncios: "anúncios", resultados_comerciais: "resultados comerciais", analises: "análises", testes: "testes", diarios: "meses com dados diários", criativos: "imagens de criativos", instagram: "meses com dados do Instagram", tarefas: "tarefas", financeiro: "lançamentos financeiros", recorrencias: "recorrências" };
+const RESTORE_NOMES = { clientes: "clientes", relatorios: "meses", campanhas: "campanhas", conjuntos: "conjuntos", anuncios: "anúncios", resultados_comerciais: "resultados comerciais", analises: "análises", testes: "testes", diarios: "meses com dados diários", criativos: "imagens de criativos", instagram: "meses com dados do Instagram", tarefas: "tarefas", financeiro: "lançamentos financeiros", recorrencias: "despesas fixas", reservas: "reservas", posts: "posts", planejamentos: "planejamentos", leads: "oportunidades comerciais", documentos: "documentos de processos" };
 function restorePanel() {
   const status = h("p", { class: "lead", id: "restoreStatus", style: "margin:0" }, RESTORE.status || "Escolha um arquivo de backup (.json) exportado por este sistema. Registros com o mesmo identificador são substituídos pela versão do backup; registros que não estão no backup continuam como estão.");
   const input = h("input", { id: "restoreFile", type: "file", accept: ".json,application/json", class: "file", disabled: !canWrite() });

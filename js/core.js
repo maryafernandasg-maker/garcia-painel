@@ -741,6 +741,8 @@ const Domain = (() => {
 
   const COLLECTIONS = ["clientes", "relatorios", "campanhas", "conjuntos", "anuncios", "resultados_comerciais", "analises", "testes", "diarios", "criativos", "instagram"];
   const DEPENDENTES = COLLECTIONS.filter(c => c !== "clientes");
+  /** Coleções da agência (não ligadas a um único relatório de tráfego) */
+  const AGENCIA = ["tarefas", "financeiro", "recorrencias", "reservas", "posts", "planejamentos", "leads", "documentos"];
 
   const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
   /** "1 conversa", "12 conversas" */
@@ -974,7 +976,7 @@ const Domain = (() => {
       data: ok ? { nome, segmento: segmento || null, cidade: cidade || null, objetivo, status,
         ticketMedioCentavos: ticket.value, inicioGestao: inicio, observacoes: observacoes || null, moeda: "BRL", schema: SCHEMA,
         servicos, mensalidadeCentavos: mens.value, diaVencimento: venc ? Number(venc) : null, instagram: instagram || null,
-        contatoNome: contatoNome || null, telefone: telefone || null, email: email || null } : null,
+        contatoNome: contatoNome || null, telefone: telefone || null, email: email || null, interno: !!input.interno } : null,
     };
   }
 
@@ -987,5 +989,5 @@ const Domain = (() => {
   }
 
   return { SERVICOS, VARIAVEIS, STATUS_TESTE, STATUS_ACAO, validateAcoes, SCHEMA, OBJETIVOS, STATUS, OBJ_META, STATUS_CAMP, TIPOS, TIPOS_CURTO, FORMATOS, ATRIBUICAO, TIPO_PADRAO,
-    COLLECTIONS, DEPENDENTES, SPEC, flat, resolveOptions, parseFields, validate, validateCliente, relatorioId, criativoId, novoId, norm, tipoLabel, qtdTipo };
+    COLLECTIONS, DEPENDENTES, AGENCIA, SPEC, flat, resolveOptions, parseFields, validate, validateCliente, relatorioId, criativoId, novoId, norm, tipoLabel, qtdTipo };
 })();

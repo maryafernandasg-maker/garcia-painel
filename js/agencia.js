@@ -41,19 +41,6 @@ function renderUser() {
     h("button", { class: "btn btn-ghost btn-sm side-btn", type: "button", onclick: () => Store.logout() }, "Sair"));
 }
 
-/* ---------- em breve ---------- */
-const EM_BREVE = {
-  financeiro: ["Financeiro", 4, "Mensalidades recorrentes por cliente, cobranças do mês, despesas, fluxo de caixa, valores a receber e atrasados, com importação do financeiro do Notion."],
-  processos: ["Processos", 5, "Jornada do cliente, SOPs, padrões e onboarding, trazidos da Central de Operações do Notion."],
-  social: ["Calendário editorial", 3, "Calendário de posts por cliente, com legenda, roteiro e arte, importado das bases de conteúdo do Notion."],
-  producao: ["Produção", 3, "Quadro de produção: Pauta → Produção → Arte → Aprovação → Agendado → Postado."],
-};
-function viewEmBreve(id) {
-  const [t, fase, txt] = EM_BREVE[id];
-  return [head("Em construção", t), h("div", { class: "panel" }, h("div", { class: "empty" },
-    h("span", { class: "pill encerrado" }, `Chega na fase ${fase}`), h("div", { class: "empty-title" }, "Esta área ainda não está disponível"), h("p", null, txt)))];
-}
-
 /* ---------- Início ---------- */
 function saudacao() { const hr = new Date().getHours(); return hr < 12 ? "Bom dia" : hr < 18 ? "Boa tarde" : "Boa noite"; }
 function nomeUsuario() { return (window.GARCIA_CONFIG && window.GARCIA_CONFIG.nome) || (Store.state.user?.email || "").split("@")[0]; }
@@ -64,7 +51,7 @@ function viewInicio() {
   const tarefas = AG("tarefas");
   if (clientes == null || tarefas == null) return [head("Início", `${saudacao()}, ${nomeUsuario()}`), loadingPanel()];
   const hoje = hojeISO(), d = new Date();
-  const ativos = clientes.filter(c => (c.status || "ativo") === "ativo");
+  const ativos = clientes.filter(c => (c.status || "ativo") === "ativo" && !c.interno);
   const porServ = k => ativos.filter(c => (c.servicos || []).includes(k)).length;
   const recorrente = ativos.reduce((s, c) => s + (c.mensalidadeCentavos || 0), 0);
   const semValor = ativos.filter(c => c.mensalidadeCentavos == null).length;
@@ -81,6 +68,16 @@ function viewInicio() {
   const compRel = Fmt.previousComp(Fmt.currentComp());
   const rels = AG("relatorios") || [];
   const trafego = ativos.filter(c => (c.servicos || []).includes("trafego") || rels.some(r => r.clienteId === c.id));
+  // social media: posts dos próximos 7 dias e em revisão
+  const posts = AG("posts") || [];
+  const semana = posts.filter(p => p.data && p.data >= hoje && p.data <= addDias(hoje, 6) && p.status !== "publicado").sort(ordemPost);
+  const atrasadosPost = posts.filter(p => p.data && p.data < hoje && !["publicado"].includes(p.status));
+  const emRevisao = posts.filter(p => p.status === "revisao").length;
+  // financeiro do mês
+  const fin = AG("financeiro") || [], compAtual = Fmt.currentComp();
+  const R = totaisFin(fin.filter(l => l.tipo === "receita" && l.competencia === compAtual), hoje);
+  const atrasoTotal = fin.filter(l => l.tipo === "receita" && situacao(l, hoje) === "atrasado").reduce((s2, l) => s2 + (l.valorCentavos || 0), 0);
+  const fups = (AG("leads") || []).filter(l => l.proximoFollowup && l.proximoFollowup <= hoje && !["fechado", "perdido"].includes(l.status));
 
   const sub = `Hoje é ${DIAS_SEMANA[d.getDay()]}, ${d.getDate()} de ${Fmt.MESES[d.getMonth()]}. ${deHoje.length ? `${deHoje.length} ${deHoje.length === 1 ? "tarefa" : "tarefas"} para hoje` : "Nenhuma tarefa marcada para hoje"}${atrasadas.length ? ` e ${atrasadas.length} ${atrasadas.length === 1 ? "atrasada" : "atrasadas"}` : ""}.`;
   const hero = h("div", { class: "home-head" },
@@ -107,39 +104,63 @@ function viewInicio() {
         h("div", { class: "flow-steps" }, passos.map(([l, okk]) => h("span", { class: "step " + (okk ? "ok" : "") }, h("span", { class: "dotc", "aria-hidden": "true" }), l))));
     })) : h("p", { class: "muted-line" }, "Nenhum cliente ativo de tráfego. Marque o serviço “Tráfego pago” no cadastro do cliente."));
 
+  const cardSocial = h("div", { class: "hcard light" },
+    h("div", { class: "hcard-k" }, "Social media · próximos 7 dias"),
+    h("div", { class: "hcard-v" }, Fmt.integer(semana.length)),
+    h("div", { class: "hcard-sub" }, [`${emRevisao} em revisão`, atrasadosPost.length ? `${atrasadosPost.length} com data passada sem publicar` : null].filter(Boolean).join(" · ")),
+    h("button", { class: "hcard-link", type: "button", onclick: () => go("social") }, "Abrir calendário"));
+  const cardFin = h("div", { class: "hcard light" },
+    h("div", { class: "hcard-k" }, `Financeiro · ${Fmt.MESES[d.getMonth()]}`),
+    h("div", { class: "hcard-v" }, Fmt.money(R.pago)),
+    h("div", { class: "hcard-sub" }, R.n ? `recebido de ${Fmt.money(R.previsto)} · ${Fmt.money(R.aberto)} em aberto` : "Nenhuma cobrança lançada neste mês."),
+    atrasoTotal ? h("div", { class: "hcard-sub late" }, `${Fmt.money(atrasoTotal)} em cobranças atrasadas`) : null,
+    h("button", { class: "hcard-link", type: "button", onclick: () => go("financeiro") }, "Abrir financeiro"));
+  const semanaPanel = h("div", { class: "panel panel-pad" },
+    h("div", { class: "chart-head" }, h("h2", null, "Publicações da semana"), h("button", { class: "btn btn-ghost btn-sm", type: "button", onclick: () => go("producao") }, "Abrir produção")),
+    semana.length ? h("ul", { class: "week-posts" }, semana.map(p => h("li", null,
+      h("span", { class: "wp-d" }, `${DIAS_SEMANA[new Date(p.data + "T12:00").getDay()].slice(0, 3)} ${dataCurta(p.data)}`),
+      h("button", { class: "linkbtn", type: "button", onclick: () => openPost(p) }, p.titulo || p.tema || "Sem título"),
+      h("span", { class: "sub" }, [nomeCliente(p.clienteId), FORMATOS_POST[p.formato]].filter(Boolean).join(" · ")),
+      h("span", { class: "pill sm st-" + p.status }, ETAPA_NOME[p.status])))) : h("p", { class: "muted-line" }, "Nenhum post com data para os próximos 7 dias."));
+  const fupPanel = fups.length ? h("div", { class: "panel panel-pad" }, h("div", { class: "chart-head" }, h("h2", null, "Follow-ups comerciais"), h("button", { class: "btn btn-ghost btn-sm", type: "button", onclick: () => go("comercial") }, "Abrir")),
+    h("ul", { class: "tasks compact" }, fups.map(l => h("li", { class: "task" + (l.proximoFollowup < hoje ? " late" : "") }, h("button", { class: "linkbtn", type: "button", onclick: () => openLead(l) }, l.empresa),
+      h("span", { class: "task-m" }, l.proximoFollowup < hoje ? `Atrasado · ${Fmt.date(l.proximoFollowup)}` : "Hoje"))))) : null;
+
   return [hero, h("div", { class: "home-grid" },
-    h("div", { class: "home-main" }, h("div", { class: "hcards" }, cardClientes, cardReceita), fluxo, tarefasPanel(tarefas, clientes)),
-    h("div", { class: "home-side" }, miniCalendario(tarefas, ativos), proximasPanel(abertas, clientes)))];
+    h("div", { class: "home-main" }, h("div", { class: "hcards" }, cardClientes, cardReceita, cardSocial, cardFin), tarefasPanel(tarefas, clientes), semanaPanel, fluxo),
+    h("div", { class: "home-side" }, miniCalendario(tarefas, ativos, posts), fupPanel, proximasPanel(abertas, clientes)))];
 }
 
 /* ---------- mini calendário ---------- */
-function miniCalendario(tarefas, ativos) {
+function miniCalendario(tarefas, ativos, posts) {
   const hoje = hojeISO();
   const mes = UI.homeMes || hoje.slice(0, 7);
   const [y, m] = mes.split("-").map(Number);
   const last = new Date(y, m, 0).getDate(), first = new Date(y, m - 1, 1).getDay();
   const comTarefa = new Set(tarefas.filter(t => !t.feita && t.data && t.data.startsWith(mes)).map(t => t.data));
   const comVenc = new Set(ativos.filter(c => c.diaVencimento).map(c => `${mes}-${String(Math.min(c.diaVencimento, last)).padStart(2, "0")}`));
+  const comPost = new Set((posts || []).filter(p => p.data && p.data.startsWith(mes)).map(p => p.data));
   const cells = [];
   for (let i = 0; i < first; i++) cells.push(h("span", { class: "mc-cell empty" }));
   for (let dd = 1; dd <= last; dd++) {
     const ds = `${mes}-${String(dd).padStart(2, "0")}`;
     cells.push(h("button", { type: "button", class: "mc-cell" + (ds === hoje ? " today" : "") + (UI.homeDia === ds ? " sel" : ""),
-      "aria-label": `${Fmt.date(ds)}${comTarefa.has(ds) ? ", com tarefas" : ""}${comVenc.has(ds) ? ", com vencimento" : ""}`,
+      "aria-label": `${Fmt.date(ds)}${comTarefa.has(ds) ? ", com tarefas" : ""}${comVenc.has(ds) ? ", com vencimento" : ""}${comPost.has(ds) ? ", com posts" : ""}`,
       onclick: () => { UI.homeDia = UI.homeDia === ds ? null : ds; render(); } }, String(dd),
-      h("span", { class: "mc-dots" }, comTarefa.has(ds) ? h("i", { class: "t" }) : null, comVenc.has(ds) ? h("i", { class: "v" }) : null)));
+      h("span", { class: "mc-dots" }, comTarefa.has(ds) ? h("i", { class: "t" }) : null, comVenc.has(ds) ? h("i", { class: "v" }) : null, comPost.has(ds) ? h("i", { class: "p" }) : null)));
   }
   const nav = n => { const dt = new Date(y, m - 1 + n, 1); UI.homeMes = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`; render(); };
   return h("div", { class: "panel panel-pad minical" },
     h("div", { class: "mc-head" }, h("button", { class: "btn btn-ghost btn-sm", type: "button", "aria-label": "Mês anterior", onclick: () => nav(-1) }, "‹"),
       h("span", { class: "mc-title" }, `${Fmt.MESES[m - 1]} ${y}`), h("button", { class: "btn btn-ghost btn-sm", type: "button", "aria-label": "Próximo mês", onclick: () => nav(1) }, "›")),
     h("div", { class: "mc-grid" }, ["D", "S", "T", "Q", "Q", "S", "S"].map(x => h("span", { class: "mc-h" }, x)), cells),
-    h("div", { class: "mc-legend" }, h("span", null, h("i", { class: "t" }), "Tarefas"), h("span", null, h("i", { class: "v" }), "Vencimentos")),
-    UI.homeDia ? h("p", { class: "mc-note" }, `Mostrando tarefas de ${Fmt.date(UI.homeDia)}. `, h("button", { class: "linkbtn", type: "button", onclick: () => { UI.homeDia = null; render(); } }, "Ver todas")) : null);
+    h("div", { class: "mc-legend" }, h("span", null, h("i", { class: "t" }), "Tarefas"), h("span", null, h("i", { class: "v" }), "Vencimentos"), h("span", null, h("i", { class: "p" }), "Posts")),
+    UI.homeDia ? h("div", { class: "mc-note" }, `Mostrando tarefas de ${Fmt.date(UI.homeDia)}. `, h("button", { class: "linkbtn", type: "button", onclick: () => { UI.homeDia = null; render(); } }, "Ver todas"),
+      (posts || []).filter(p => p.data === UI.homeDia).length ? h("ul", { class: "mc-posts" }, (posts || []).filter(p => p.data === UI.homeDia).map(p => h("li", null, h("button", { class: "linkbtn", type: "button", onclick: () => openPost(p) }, `${FORMATOS_POST[p.formato] || "Post"}: ${p.titulo || p.tema || "Sem título"}`)))) : null) : null);
 }
 
 /* ---------- tarefas ---------- */
-const AREAS = { geral: "Geral", trafego: "Tráfego", social: "Social media", financeiro: "Financeiro" };
+const AREAS = { geral: "Geral", trafego: "Tráfego", social: "Social media", financeiro: "Financeiro", comercial: "Comercial" };
 function tarefaItem(t, clientes) {
   const cli = t.clienteId && clientes.find(c => c.id === t.clienteId);
   const hoje = hojeISO();

@@ -75,7 +75,7 @@ const Store = (() => {
     user = u; state.user = { id: u.id, email: u.email };
     state.status = "ready"; emit();
     watch("clientes", "clientes", null, null, rows => { state.clientes = rows; });
-    for (const c of ["tarefas", "financeiro", "recorrencias", "relatorios"]) watch("ag:" + c, c, null, null, rows => { (state.ag ||= {})[c] = rows; });
+    for (const c of [...Domain.AGENCIA, "relatorios"]) watch("ag:" + c, c, null, null, rows => { (state.ag ||= {})[c] = rows; });
   }
   /** Mescla como o "update" do sistema anterior: objetos aninhados são mesclados; o resto é substituído. */
   function merge(base, patch) {
@@ -119,6 +119,13 @@ const Store = (() => {
       ok(await sb.from("docs").update({ data: strip(merge(atual.data, { ...data, atualizadoEm: t })), updated_at: t }).eq("collection", col).eq("id", id));
       await refresh(col);
     },
+    /** Grava vários registros de uma vez (lotes de 200). list: [[col, id, data], …] */
+    async putMany(list) {
+      const t = now();
+      const rows = list.map(([col, id, data]) => ({ owner: user.id, collection: col, id, data: strip({ ...data, criadoEm: data.criadoEm || t, atualizadoEm: t }), updated_at: t }));
+      for (let i = 0; i < rows.length; i += 200) ok(await sb.from("docs").upsert(rows.slice(i, i + 200), { onConflict: "owner,collection,id" }));
+      await Promise.all([...new Set(list.map(x => x[0]))].map(refresh));
+    },
     async remove(col, id) { ok(await sb.from("docs").delete().eq("collection", col).eq("id", id)); await refresh(col); },
     async get(col, id) { const r = ok(await sb.from("docs").select("id,data").eq("collection", col).eq("id", id).maybeSingle()); return r ? toDoc(r) : null; },
     async find(col, field, value) {
@@ -137,12 +144,12 @@ const Store = (() => {
     async dependentes(clienteId) {
       const out = {};
       for (const c of Domain.DEPENDENTES) { const d = await this.find(c, "clienteId", clienteId); if (d.length) out[c] = d.length; }
-      for (const c of ["financeiro", "recorrencias", "tarefas"]) { const d = await this.find(c, "clienteId", clienteId); if (d.length) out[c] = d.length; }
+      for (const c of ["financeiro", "tarefas", "posts", "planejamentos", "documentos"]) { const d = await this.find(c, "clienteId", clienteId); if (d.length) out[c] = d.length; }
       return out;
     },
     async dumpAll() {
       const out = {};
-      const cols = [...Domain.COLLECTIONS, "tarefas", "financeiro", "recorrencias"];
+      const cols = [...Domain.COLLECTIONS, ...Domain.AGENCIA];
       for (const c of cols) {
         out[c] = [];
         for (let from = 0; ; from += 1000) {

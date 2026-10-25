@@ -29,9 +29,10 @@
             return res({ data: b.single ? out[0] || null : out, error: null });
           }
           if (b.op === "upsert") {
-            if (b.row.owner !== me()) return res({ data: null, error: { message: "new row violates row-level security policy" } });
-            rows = rows.filter(r => !(r.owner === b.row.owner && r.collection === b.row.collection && r.id === b.row.id));
-            rows.push(JSON.parse(JSON.stringify(b.row))); save(rows); return res({ data: null, error: null });
+            const list = Array.isArray(b.row) ? b.row : [b.row];
+            if (list.some(x => x.owner !== me())) return res({ data: null, error: { message: "new row violates row-level security policy" } });
+            for (const row of list) { rows = rows.filter(r => !(r.owner === row.owner && r.collection === row.collection && r.id === row.id)); rows.push(JSON.parse(JSON.stringify(row))); }
+            save(rows); return res({ data: null, error: null });
           }
           if (b.op === "update") { rows.forEach(r => { if (match(r)) Object.assign(r, JSON.parse(JSON.stringify(b.obj))); }); save(rows); return res({ data: null, error: null }); }
           if (b.op === "delete") { save(rows.filter(r => !match(r))); return res({ data: null, error: null }); }
