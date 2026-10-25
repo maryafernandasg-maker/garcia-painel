@@ -64,5 +64,35 @@ const Charts = (() => {
     opts.labels.forEach((l, i) => { if ((n - 1 - i) % every) return; s += `<text x="${xC(i).toFixed(1)}" y="${H - 10}" text-anchor="middle" font-size="${fs + 0.5}" fill="${c.muted}">${esc(l)}</text>`; });
     return s + "</svg>";
   }
-  return { svg, niceMax };
+  /** Barras agrupadas de duas séries com o mesmo formato (ex.: investimento × faturamento).
+      opts: { labels[], a[], b[], fmt, width, height, colors: {a, b, text, muted, grid}, font } */
+  function duplo(opts) {
+    const W = opts.width || 640, H = opts.height || 240, c = opts.colors, font = opts.font || "Jost, sans-serif", fs = 10, fmt = opts.fmt || "moeda";
+    const num = v => (typeof v === "number" && isFinite(v) ? v : null);
+    const A = opts.a.map(num), B = opts.b.map(num), n = A.length;
+    const max = niceMax(Math.max(0, ...A.filter(v => v != null), ...B.filter(v => v != null)));
+    const left = 56, right = 12, top = 18, bottom = 30, iw = W - left - right, ih = H - top - bottom;
+    const step = iw / Math.max(n, 1), y = v => top + ih - (v / max) * ih, xC = i => left + step * i + step / 2;
+    const bw = Math.min(20, step * 0.32);
+    let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="${esc(font)}">`;
+    for (let i = 0; i <= 4; i++) {
+      const v = (max / 4) * i, yy = y(v).toFixed(1);
+      s += `<line x1="${left}" x2="${W - right}" y1="${yy}" y2="${yy}" stroke="${c.grid}" stroke-width="1"/>`;
+      s += `<text x="${left - 8}" y="${(+yy + 3.5).toFixed(1)}" text-anchor="end" font-size="${fs}" fill="${c.muted}">${esc(Fmt.compact(fmt, v))}</text>`;
+    }
+    const bar = (v, x, cor, nome, i) => {
+      if (v == null) return "";
+      const hh = Math.max(top + ih - y(v), v > 0 ? 1 : 0);
+      return `<rect x="${x.toFixed(1)}" y="${(top + ih - hh).toFixed(1)}" width="${bw.toFixed(1)}" height="${hh.toFixed(1)}" rx="2" fill="${cor}"><title>${esc(opts.labels[i] + " · " + nome + ": " + Fmt.metric(fmt, v))}</title></rect>`;
+    };
+    for (let i = 0; i < n; i++) {
+      if (A[i] == null && B[i] == null) { s += `<text x="${xC(i).toFixed(1)}" y="${(top + ih - 6).toFixed(1)}" text-anchor="middle" font-size="${fs}" fill="${c.muted}">—</text>`; continue; }
+      s += bar(A[i], xC(i) - bw - 1, c.a, opts.nomeA || "A", i) + bar(B[i], xC(i) + 1, c.b, opts.nomeB || "B", i);
+    }
+    s += `<line x1="${left}" x2="${W - right}" y1="${top + ih}" y2="${top + ih}" stroke="${c.muted}" stroke-width="1"/>`;
+    const every = Math.max(1, Math.ceil((fs * 3.6) / step));
+    opts.labels.forEach((l, i) => { if ((n - 1 - i) % every) return; s += `<text x="${xC(i).toFixed(1)}" y="${H - 10}" text-anchor="middle" font-size="${fs + 0.5}" fill="${c.muted}">${esc(l)}</text>`; });
+    return s + "</svg>";
+  }
+  return { svg, duplo, niceMax };
 })();

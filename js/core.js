@@ -56,6 +56,14 @@ const Fmt = (() => {
       return { ok: true, value: cents };
     },
     /** Texto → inteiro ≥ 0. Aceita "12.345" e "12345". */
+    /** Texto → decimal ≥ 0 (percentuais e ROAS). Aceita "1,5", "1.5", "3" e "2,5%". */
+    parseDec(text) {
+      const s = String(text ?? "").replace(/[%x\s]/gi, "");
+      if (s === "") return { ok: true, value: null };
+      if (!/^\d+([.,]\d{1,4})?$/.test(s)) return { ok: false, error: "Use um número, como 1,5." };
+      return { ok: true, value: Number(s.replace(",", ".")) };
+    },
+    decInput(v) { return isNum(v) ? String(v).replace(".", ",") : ""; },
     parseInt(text) {
       const s = String(text ?? "").replace(/\s/g, "");
       if (s === "") return { ok: true, value: null };
@@ -112,7 +120,7 @@ const Metrics = (() => {
   const LABEL = {
     investimentoCentavos: "Investimento", impressoes: "Impressões", alcance: "Alcance", cliquesLink: "Cliques no link",
     resultados: "Resultados", leads: "Conversas ou leads", leadsQualificados: "Leads qualificados", vendas: "Vendas atribuídas",
-    receita: "Receita atribuída", custo: "Custo de aquisição",
+    receita: "Faturamento dos anúncios", custo: "Custo de aquisição", conversas: "Conversas iniciadas", leadsForm: "Leads gerados", faturamentoTotal: "Faturamento geral", dias: "Dias do período",
   };
 
   /** Divisão segura. Retorna {v, m}: v = valor ou null; m = motivo quando não dá para calcular. */
@@ -773,6 +781,7 @@ const Domain = (() => {
       { section: "Período" },
       { row: [F.date("periodoInicio", "Início", { req: true }), F.date("periodoFim", "Fim", { req: true })] },
       ...METRICAS(true),
+      F.money("orcamentoDiarioCentavos", "Orçamento diário", { help: "Opcional. Soma dos orçamentos diários ativos no mês. Sem ele, o painel mostra a média gasta por dia." }),
       { note: "Alcance do mês: use a linha de total do Gerenciador no nível de campanhas. Ela já remove pessoas repetidas; somar o alcance das campanhas dá um número maior que o real." },
       { section: "Notas" },
       F.area("observacoes", "Observações sobre os dados", { help: "Ex.: conta ficou parada 5 dias por falta de pagamento." }),
@@ -810,6 +819,7 @@ const Domain = (() => {
       F.text("criterioQualificacao", "O que conta como lead qualificado", { max: 200, help: "Ex.: pediu orçamento com data e quantidade." }),
       { row: [F.int("vendasAtribuidas", "Vendas atribuídas aos anúncios"), F.money("receitaAtribuidaCentavos", "Receita dessas vendas")] },
       { note: "Registre a receita já sem cancelamentos e reembolsos." },
+      F.money("faturamentoTotalCentavos", "Faturamento geral do cliente no mês", { help: "Tudo o que o cliente faturou no mês, de qualquer origem (anúncios, indicação, loja…)." }),
       F.select("criterioAtribuicao", "Como as vendas foram atribuídas aos anúncios", ATRIBUICAO, { blank: "Não informado" }),
       F.text("atribuicaoDetalhe", "Detalhe do critério", { max: 200 }),
       F.text("fonteInformacao", "De onde vieram esses números", { max: 160, help: "Ex.: planilha de pedidos enviada pela cliente em 03/10." }),
@@ -990,4 +1000,186 @@ const Domain = (() => {
 
   return { SERVICOS, VARIAVEIS, STATUS_TESTE, STATUS_ACAO, validateAcoes, SCHEMA, OBJETIVOS, STATUS, OBJ_META, STATUS_CAMP, TIPOS, TIPOS_CURTO, FORMATOS, ATRIBUICAO, TIPO_PADRAO,
     COLLECTIONS, DEPENDENTES, AGENCIA, SPEC, flat, resolveOptions, parseFields, validate, validateCliente, relatorioId, criativoId, novoId, norm, tipoLabel, qtdTipo };
+})();
+
+/* =====================================================================
+   DESEMPENHO — painel de tráfego por cliente e da carteira inteira.
+   Uma "linha" = um cliente em um mês lançado. As mesmas regras valem
+   para um cliente (várias linhas do mesmo cliente) e para a carteira
+   (linhas de todos os clientes): somas só do que é somável e taxas
+   sempre ponderadas (soma ÷ soma), nunca médias de percentuais.
+   ===================================================================== */
+const Desempenho = (() => {
+  const isNum = Fmt.isNum;
+  const { ratio, ponderada, soma } = Metrics;
+  const na = m => ({ v: null, m });
+  const diasEntre = (a, b) => { const t = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); return Math.round((t(b) - t(a)) / 864e5) + 1; };
+  const diasNoMes = comp => new Date(Date.UTC(+comp.slice(0, 4), +comp.slice(5, 7), 0)).getUTCDate();
+
+  /** Uma linha mensal: resumo do mês + resultados comerciais + campanhas do mês. */
+  function linha({ comp, clienteId, resumo, com, campanhas, metas, periodoInicio, periodoFim }) {
+    const R = resumo || {}, C = com || {}, M = metas || {};
+    const camps = (campanhas || []).filter(c => isNum(c.resultados) && c.tipoResultado);
+    const doTipo = t => { const xs = camps.filter(c => c.tipoResultado === t); return xs.length ? xs.reduce((s, c) => s + c.resultados, 0) : null; };
+    let conversas = doTipo("conversas"), leadsForm = doTipo("leads");
+    // sem campanhas desses tipos lançadas: usa o resultado principal do resumo
+    if (conversas == null && leadsForm == null && isNum(R.resultados)) {
+      if (R.tipoResultado === "conversas") conversas = R.resultados;
+      if (R.tipoResultado === "leads") leadsForm = R.resultados;
+    }
+    const leads = conversas == null && leadsForm == null ? null : (conversas || 0) + (leadsForm || 0);
+    const orcCamps = (campanhas || []).filter(c => isNum(c.orcamentoDiarioCentavos));
+    const b = comp ? { inicio: `${comp}-01`, fim: `${comp}-${String(diasNoMes(comp)).padStart(2, "0")}` } : null;
+    const ini = periodoInicio || (b && b.inicio), fim = periodoFim || (b && b.fim);
+    return {
+      comp, clienteId: clienteId || null,
+      investimentoCentavos: isNum(R.investimentoCentavos) ? R.investimentoCentavos : null,
+      alcance: isNum(R.alcance) ? R.alcance : null, impressoes: isNum(R.impressoes) ? R.impressoes : null, cliquesLink: isNum(R.cliquesLink) ? R.cliquesLink : null,
+      conversas, leadsForm, leads,
+      leadsQualificados: isNum(C.leadsQualificados) ? C.leadsQualificados : null,
+      vendas: isNum(C.vendasAtribuidas) ? C.vendasAtribuidas : null,
+      receita: isNum(C.receitaAtribuidaCentavos) ? C.receitaAtribuidaCentavos : null,
+      faturamentoTotal: isNum(C.faturamentoTotalCentavos) ? C.faturamentoTotalCentavos : null,
+      custosExtras: isNum(C.custosExtrasCentavos) ? C.custosExtrasCentavos : null,
+      orcamentoDiario: isNum(R.orcamentoDiarioCentavos) ? R.orcamentoDiarioCentavos : orcCamps.length ? orcCamps.reduce((s, c) => s + c.orcamentoDiarioCentavos, 0) : null,
+      dias: ini && fim ? diasEntre(ini, fim) : null,
+      diasMes: comp ? diasNoMes(comp) : null,
+      margemPct: isNum(M.margemPct) ? M.margemPct : null,
+    };
+  }
+
+  /** Consolida linhas. carteira: linhas de vários clientes. */
+  function consolidar(rows, opts) {
+    rows = rows || []; opts = opts || {};
+    const um = rows.length === 1 ? rows[0] : null;
+    const clientes = new Set(rows.map(r => r.clienteId)).size;
+    const umMesPorCliente = rows.length > 0 && clientes === rows.length;
+    let alcance;
+    if (um) alcance = isNum(um.alcance) ? { v: um.alcance, m: null } : na("Alcance: não informado");
+    else if (opts.carteira && umMesPorCliente) { const s = soma(rows, "alcance"); alcance = { ...s, nota: "Soma do alcance de cada cliente" }; }
+    else alcance = na(opts.carteira ? "Alcance só é somado para um mês" : "Alcance não é somável entre meses");
+    // orçamento diário: o informado (um mês) ou a média gasta por dia
+    let orcamentoDiario;
+    if (um && isNum(um.orcamentoDiario)) orcamentoDiario = { v: um.orcamentoDiario, m: null, nota: "Orçamento diário informado" };
+    else if (opts.carteira && umMesPorCliente && rows.every(r => isNum(r.orcamentoDiario))) orcamentoDiario = { v: rows.reduce((s, r) => s + r.orcamentoDiario, 0), m: null, nota: "Soma dos orçamentos diários" };
+    else { const r = ponderada(rows.filter(x => isNum(x.dias)), "investimentoCentavos", "dias", 1); orcamentoDiario = { ...r, nota: r.v == null ? null : "Média gasta por dia" }; }
+    // CAC: mídia + custos extras, só quando os custos extras foram informados em todos os meses com vendas
+    const comVendas = rows.filter(r => isNum(r.vendas) && isNum(r.investimentoCentavos));
+    const cac = !comVendas.length ? na("Vendas: não informado")
+      : comVendas.some(r => !isNum(r.custosExtras)) ? na("Informe os custos além da mídia (fee, produção) em Resultados comerciais")
+      : ponderada(comVendas.map(r => ({ custo: r.investimentoCentavos + r.custosExtras, vendas: r.vendas })), "custo", "vendas", 1);
+    // lucro estimado: receita × margem − investimento − custos extras, por linha
+    const comReceita = rows.filter(r => isNum(r.receita) && isNum(r.investimentoCentavos));
+    const comMargem = comReceita.filter(r => isNum(r.margemPct));
+    let lucro;
+    if (!comReceita.length) lucro = na("Faturamento atribuído: não informado");
+    else if (!comMargem.length) lucro = na(opts.carteira ? "Nenhum cliente com margem de lucro cadastrada nas metas" : "Cadastre a margem de lucro do cliente em Metas");
+    else {
+      lucro = { v: comMargem.reduce((s, r) => s + Math.round(r.receita * r.margemPct / 100) - r.investimentoCentavos - (r.custosExtras || 0), 0), m: null };
+      const fora = new Set(comReceita.filter(r => !isNum(r.margemPct)).map(r => r.clienteId)).size;
+      if (fora) lucro.nota = `${fora} ${fora === 1 ? "cliente sem margem cadastrada ficou" : "clientes sem margem cadastrada ficaram"} de fora`;
+    }
+    return {
+      linhas: rows.length, clientes,
+      investimentoCentavos: soma(rows, "investimentoCentavos"),
+      orcamentoDiario, alcance,
+      impressoes: soma(rows, "impressoes"),
+      frequencia: um ? ratio(um.impressoes, um.alcance, 1, "impressoes", "alcance") : na("Frequência só é calculada para um mês de um cliente"),
+      cpm: ponderada(rows, "investimentoCentavos", "impressoes", 1000),
+      cliquesLink: soma(rows, "cliquesLink"),
+      ctr: ponderada(rows, "cliquesLink", "impressoes", 100),
+      cpc: ponderada(rows, "investimentoCentavos", "cliquesLink", 1),
+      conversas: soma(rows, "conversas"),
+      leadsForm: soma(rows, "leadsForm"),
+      leads: soma(rows, "leads"),
+      cpl: ponderada(rows, "investimentoCentavos", "leads", 1),
+      taxaCliqueLead: ponderada(rows, "leads", "cliquesLink", 100),
+      leadsQualificados: soma(rows, "leadsQualificados"),
+      taxaQualificacao: ponderada(rows, "leadsQualificados", "leads", 100),
+      vendas: soma(rows, "vendas"),
+      receita: soma(rows, "receita"),
+      faturamentoTotal: soma(rows, "faturamentoTotal"),
+      participacao: ponderada(rows, "receita", "faturamentoTotal", 100),
+      cac,
+      custoVenda: ponderada(rows, "investimentoCentavos", "vendas", 1),
+      roas: ponderada(rows, "receita", "investimentoCentavos", 1),
+      taxaLeadVenda: ponderada(rows, "vendas", "leads", 100),
+      ticket: ponderada(rows, "receita", "vendas", 1),
+      lucro,
+    };
+  }
+
+  /** Definição de cada indicador do painel (nome, formato, direção e fórmula). */
+  const IND = {
+    investimentoCentavos: { nome: "Investimento em anúncios", fmt: "moeda", dir: 0, formula: "Soma do valor usado no período." },
+    orcamentoDiario: { nome: "Orçamento diário", fmt: "moeda", dir: 0, formula: "Orçamento informado no resumo do mês ou soma dos orçamentos das campanhas importadas. Sem isso, a média gasta por dia (investimento ÷ dias do período)." },
+    alcance: { nome: "Alcance", fmt: "int", dir: 1, formula: "Pessoas únicas que viram os anúncios (total do mês)." },
+    impressoes: { nome: "Impressões", fmt: "int", dir: 1, formula: "Soma das exibições." },
+    frequencia: { nome: "Frequência", fmt: "dec", dir: 0, formula: "Impressões ÷ Alcance." },
+    cpm: { nome: "CPM", fmt: "moeda", dir: -1, formula: "Investimento ÷ Impressões × 1.000." },
+    cliquesLink: { nome: "Cliques no link", fmt: "int", dir: 1, formula: "Soma dos cliques no link." },
+    ctr: { nome: "CTR", fmt: "pct", dir: 1, formula: "Cliques no link ÷ Impressões × 100." },
+    cpc: { nome: "CPC", fmt: "moeda", dir: -1, formula: "Investimento ÷ Cliques no link." },
+    conversas: { nome: "Conversas iniciadas", fmt: "int", dir: 1, formula: "Resultados das campanhas de mensagem." },
+    leadsForm: { nome: "Leads gerados", fmt: "int", dir: 1, formula: "Resultados das campanhas de cadastro (formulário)." },
+    leads: { nome: "Leads totais", fmt: "int", dir: 1, formula: "Conversas iniciadas + Leads gerados." },
+    cpl: { nome: "CPL", fmt: "moeda", dir: -1, formula: "Investimento ÷ (Conversas iniciadas + Leads gerados)." },
+    taxaCliqueLead: { nome: "Conversão clique → lead", fmt: "pct", dir: 1, formula: "(Conversas + Leads) ÷ Cliques no link × 100." },
+    leadsQualificados: { nome: "Leads qualificados", fmt: "int", dir: 1, formula: "Informado pelo cliente." },
+    taxaQualificacao: { nome: "Taxa de qualificação", fmt: "pct", dir: 1, formula: "Leads qualificados ÷ Leads totais × 100." },
+    vendas: { nome: "Vendas realizadas", fmt: "int", dir: 1, formula: "Vendas atribuídas aos anúncios, informadas pelo cliente." },
+    receita: { nome: "Faturamento dos anúncios", fmt: "moeda", dir: 1, formula: "Receita das vendas atribuídas aos anúncios, informada pelo cliente." },
+    faturamentoTotal: { nome: "Faturamento geral", fmt: "moeda", dir: 1, formula: "Tudo o que o cliente faturou no mês, de qualquer origem. Informado pelo cliente." },
+    participacao: { nome: "Peso dos anúncios no faturamento", fmt: "pct", dir: 1, formula: "Faturamento dos anúncios ÷ Faturamento geral × 100." },
+    cac: { nome: "CAC", fmt: "moeda", dir: -1, formula: "(Investimento + custos além da mídia) ÷ Vendas." },
+    custoVenda: { nome: "Custo por venda", fmt: "moeda", dir: -1, formula: "Investimento ÷ Vendas." },
+    roas: { nome: "ROAS", fmt: "x", dir: 1, formula: "Faturamento dos anúncios ÷ Investimento." },
+    taxaLeadVenda: { nome: "Conversão lead → venda", fmt: "pct", dir: 1, formula: "Vendas ÷ Leads totais × 100." },
+    ticket: { nome: "Ticket médio", fmt: "moeda", dir: 1, formula: "Faturamento dos anúncios ÷ Vendas." },
+    lucro: { nome: "Lucro estimado", fmt: "moeda", dir: 1, formula: "Faturamento dos anúncios × margem de lucro do cliente − Investimento − custos além da mídia." },
+  };
+
+  /** Metas por cliente. volume: meta mensal, ajustada aos dias do período. */
+  const METAS = [
+    { k: "investimentoMensalCentavos", ind: "investimentoCentavos", nome: "Investimento mensal planejado", tipo: "money", volume: true, neutra: true },
+    { k: "cplMaxCentavos", ind: "cpl", nome: "CPL máximo", tipo: "money", dir: -1 },
+    { k: "ctrMin", ind: "ctr", nome: "CTR mínimo", tipo: "pct", dir: 1 },
+    { k: "cpcMaxCentavos", ind: "cpc", nome: "CPC máximo", tipo: "money", dir: -1 },
+    { k: "cpmMaxCentavos", ind: "cpm", nome: "CPM máximo", tipo: "money", dir: -1 },
+    { k: "leadsMin", ind: "leads", nome: "Leads por mês", tipo: "int", dir: 1, volume: true },
+    { k: "vendasMin", ind: "vendas", nome: "Vendas por mês", tipo: "int", dir: 1, volume: true },
+    { k: "faturamentoMinCentavos", ind: "receita", nome: "Faturamento dos anúncios por mês", tipo: "money", dir: 1, volume: true },
+    { k: "roasMin", ind: "roas", nome: "ROAS mínimo", tipo: "x", dir: 1 },
+    { k: "cacMaxCentavos", ind: "cac", nome: "CAC máximo", tipo: "money", dir: -1 },
+  ];
+  const TOLERANCIA = 0.15;
+
+  /** Compara o consolidado com as metas. rows: linhas do período (para ajustar metas de volume). */
+  function avaliar(cons, metas, rows) {
+    metas = metas || {};
+    const fracao = (rows || []).reduce((s, r) => s + (isNum(r.dias) && isNum(r.diasMes) ? Math.min(1, r.dias / r.diasMes) : 1), 0);
+    const out = [];
+    for (const d of METAS) {
+      let alvo = metas[d.k];
+      if (!isNum(alvo)) continue;
+      if (d.volume) alvo = alvo * fracao;
+      const v = cons[d.ind] ? cons[d.ind].v : null;
+      let status;
+      if (!isNum(v)) status = "sem";
+      else if (d.neutra) status = "info";
+      else if (d.dir > 0) status = v >= alvo ? "ok" : v >= alvo * (1 - TOLERANCIA) ? "perto" : "fora";
+      else status = v <= alvo ? "ok" : v <= alvo * (1 + TOLERANCIA) ? "perto" : "fora";
+      out.push({ k: d.k, ind: d.ind, nome: d.nome, alvo, v, status, pct: isNum(v) && alvo ? v / alvo * 100 : null, volume: !!d.volume, fmt: IND[d.ind].fmt });
+    }
+    return out;
+  }
+  /** Saúde geral: pior status entre as metas avaliadas. */
+  function saude(aval) {
+    const st = (aval || []).map(a => a.status);
+    if (st.includes("fora")) return "fora";
+    if (st.includes("perto")) return "perto";
+    if (st.includes("ok")) return "ok";
+    return "sem";
+  }
+  return { linha, consolidar, IND, METAS, avaliar, saude, TOLERANCIA };
 })();

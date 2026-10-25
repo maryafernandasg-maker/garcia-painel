@@ -48,6 +48,7 @@ function gavetaForm({ title, spec, values, onSave, onDelete, deleteLabel, valida
     const id = "gf-" + f.k, val = v[f.k] !== undefined ? v[f.k] : f.def;
     let c;
     if (f.type === "money") c = h("div", { class: "prefix" }, h("span", null, "R$"), h("input", { id, name: f.k, type: "text", inputmode: "decimal", value: Fmt.moneyInput(val), placeholder: "0,00", autocomplete: "off" }));
+    else if (f.type === "dec") c = h("div", { class: "prefix" }, h("span", null, f.unid || "%"), h("input", { id, name: f.k, type: "text", inputmode: "decimal", value: Fmt.decInput(val), placeholder: f.ph || "0", autocomplete: "off" }));
     else if (f.type === "int") c = h("input", { id, name: f.k, type: "text", inputmode: "numeric", value: val == null ? "" : String(val), autocomplete: "off", placeholder: f.ph || null });
     else if (f.type === "date") c = h("input", { id, name: f.k, type: "date", value: val || "" });
     else if (f.type === "textarea") c = h("textarea", { id, name: f.k, maxlength: f.max || 30000, rows: f.rows || 5, placeholder: f.ph || null }, val || "");
@@ -85,6 +86,7 @@ function gavetaForm({ title, spec, values, onSave, onDelete, deleteLabel, valida
       const raw = String(el.value ?? "");
       const t = f.type === "textarea" ? raw.replace(/\s+$/, "") : raw.trim();
       if (f.type === "money") { const r = Fmt.parseMoney(t); if (!r.ok) errors[f.k] = r.error; data[f.k] = r.value; }
+      else if (f.type === "dec") { const r = Fmt.parseDec(t); if (!r.ok) errors[f.k] = r.error; data[f.k] = r.value; }
       else if (f.type === "int") { const r = Fmt.parseInt(t); if (!r.ok) errors[f.k] = r.error; data[f.k] = r.value; }
       else if (f.type === "date") { if (t && !DATA_OK(t)) errors[f.k] = "Data inválida."; data[f.k] = t || null; }
       else if (f.type === "url") { if (t && !isUrl(t)) errors[f.k] = "Use um link completo, começando com https://"; data[f.k] = t || null; }

@@ -73,8 +73,8 @@ let pass = 0, fail = 0; const ok = (n, c) => { c ? pass++ : fail++; console.log(
   await p.click('nav >> text=Visão geral'); await W(300);
   ok('visão geral sem [object Object]', !(await p.textContent('#view')).includes('[object'));
   await p.selectOption('#clientSelect', '__nenhum'); await W(200);
-  ok('opção Nenhum no seletor', (await p.textContent('#view')).includes('Nenhum cliente selecionado'));
-  for (const v of ['Visão geral', 'Calendário diário', 'Campanhas', 'Conjuntos de anúncios', 'Anúncios e criativos', 'Funil de conversão', 'Análise estratégica', 'Lançar dados do mês', 'Relatórios mensais', 'Histórico']) { await p.click(`nav >> text=${v}`); await W(150); }
+  ok('visão geral com Nenhum mostra todos os clientes', (await p.textContent('#view')).includes('Todos os clientes') && (await p.textContent('#view')).includes('Silvia Salgados'));
+  for (const v of ['Visão geral', 'Calendário diário', 'Campanhas', 'Conjuntos de anúncios', 'Anúncios e criativos', 'Análise estratégica', 'Lançar dados do mês', 'Relatórios mensais', 'Histórico']) { await p.click(`nav >> text=${v}`); await W(150); }
   ok('todas as telas de tráfego abrem sem cliente', (await p.textContent('#view')).includes('Nenhum cliente selecionado') && errs.length === 0);
   await p.selectOption('#clientSelect', { label: 'Silvia Salgados' }); await W(300);
   await p.click('nav >> text=Conjuntos de anúncios'); await W(300);

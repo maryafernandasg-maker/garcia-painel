@@ -37,7 +37,6 @@ const SECTIONS = [
     { id: "campanhas", label: "Campanhas" },
     { id: "conjuntos", label: "Conjuntos de anúncios" },
     { id: "anuncios", label: "Anúncios e criativos" },
-    { id: "funil", label: "Funil de conversão" },
     { id: "analise", label: "Análise estratégica" },
     { id: "lancamentos", label: "Lançar dados do mês" },
     { id: "relatorios", label: "Relatórios mensais" },
@@ -166,7 +165,7 @@ function render() {
   document.body.classList.toggle("auth", st === "login" || st === "config" || st === "connecting");
   if (st === "login" || st === "config" || st === "connecting") { renderAuth(st); return; }
   renderNav(); renderClientPicker(); syncWatches(); renderDbStatus(); renderUser();
-  const VIEWS = { inicio: viewInicio, comercial: viewComercial, financeiro: viewFinanceiro, processos: viewProcessos, social: viewSocial, producao: viewProducao, planejamento: viewPlanejamento, visao: viewVisao, dias: viewDias, campanhas: viewCampanhasA, conjuntos: viewConjuntosA, anuncios: viewAnunciosA, funil: viewFunil,
+  const VIEWS = { inicio: viewInicio, comercial: viewComercial, financeiro: viewFinanceiro, processos: viewProcessos, social: viewSocial, producao: viewProducao, planejamento: viewPlanejamento, visao: viewVisaoGeral, dias: viewDias, campanhas: viewCampanhasA, conjuntos: viewConjuntosA, anuncios: viewAnunciosA,
     analise: viewAnalise, lancamentos: viewLancar, relatorios: viewRelatorios, historico: viewHistorico, clientes: viewClientes, dados: viewDados };
   const body = (VIEWS[UI.view] || viewInicio)();
   document.getElementById("view").replaceChildren(...[dbBanner(), ...[].concat(body)].flat(Infinity).filter(Boolean));
@@ -1016,7 +1015,8 @@ function openImportMeta(rel, text, fileName) {
     try {
       for (const c of r.campanhas) {
         const data = { nome: c.nome, investimentoCentavos: c.investimentoCentavos, alcance: c.alcance, impressoes: c.impressoes, cliquesLink: c.cliquesLink,
-          resultados: c.resultados, tipoResultado: c.tipoResultado, tipoResultadoOutro: c.tipoResultadoOutro, origem: "meta_csv", indicadorMeta: c.indicadorMeta };
+          resultados: c.resultados, tipoResultado: c.tipoResultado, tipoResultadoOutro: c.tipoResultadoOutro, origem: "meta_csv", indicadorMeta: c.indicadorMeta,
+          orcamentoDiarioCentavos: Fmt.isNum(c.orcamentoDiario) ? Math.round(c.orcamentoDiario * 100) : null };
         const ex = porNome[Domain.norm(c.nome)];
         if (ex) await Store.patch("campanhas", ex.id, data);
         else await Store.put("campanhas", Domain.novoId(c.nome), { ...baseDoc(rel), objetivo: null, status: null, periodoInicio: null, periodoFim: null, observacoes: null, ...data });

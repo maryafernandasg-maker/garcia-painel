@@ -2,8 +2,8 @@
 const fs = require("fs"), vm = require("vm"), path = require("path");
 const ctx = { Intl, Number, Math, String, Object, Date, console };
 vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(path.join(__dirname, "../js/core.js"), "utf8") + "\nthis.Fmt=Fmt;this.Metrics=Metrics;this.Domain=Domain;", ctx);
-const { Fmt, Metrics, Domain } = ctx;
+vm.runInContext(fs.readFileSync(path.join(__dirname, "../js/core.js"), "utf8") + "\nthis.Fmt=Fmt;this.Metrics=Metrics;this.Domain=Domain;this.Desempenho=Desempenho;", ctx);
+const { Fmt, Metrics, Domain, Desempenho } = ctx;
 
 let pass = 0, fail = 0;
 const near = (a, b) => (a === null && b === null) || (typeof a === "number" && typeof b === "number" && Math.abs(a - b) < 1e-9);
@@ -169,6 +169,58 @@ eq("teste exige hipótese", !!v.errors.hipotese, true);
 eq("rótulo de período", Fmt.periodLabel(["2026-07", "2026-08", "2026-09"]), "jul/2026 a set/2026");
 eq("competências do período", Fmt.compsUntil("2026-02", 3), ["2025-12", "2026-01", "2026-02"]);
 eq("diferença em p.p.", Fmt.signed("pct", -0.5), "−0,50 p.p.");
+
+/* ---- visão geral (Desempenho) ---- */
+{
+  const D = Desempenho;
+  eq("parseDec 1,5", Fmt.parseDec("1,5").value, 1.5);
+  eq("parseDec 30%", Fmt.parseDec("30%").value, 30);
+  eq("parseDec texto recusado", Fmt.parseDec("abc").ok, false);
+  const a = D.linha({ comp: "2026-09", clienteId: "a", resumo: { investimentoCentavos: 100000, impressoes: 50000, alcance: 20000, cliquesLink: 1000, tipoResultado: "conversas", resultados: 80 },
+    com: { leadsQualificados: 40, vendasAtribuidas: 10, receitaAtribuidaCentavos: 500000, faturamentoTotalCentavos: 2000000, custosExtrasCentavos: 50000 },
+    campanhas: [{ tipoResultado: "conversas", resultados: 60, orcamentoDiarioCentavos: 2000 }, { tipoResultado: "leads", resultados: 20, orcamentoDiarioCentavos: 1500 }, { tipoResultado: "engajamento", resultados: 900 }],
+    metas: { margemPct: 30 }, periodoInicio: "2026-09-01", periodoFim: "2026-09-30" });
+  eq("conversas vêm das campanhas", a.conversas, 60);
+  eq("leads de formulário", a.leadsForm, 20);
+  eq("leads totais = conversas + leads", a.leads, 80);
+  eq("orçamento diário = soma das campanhas", a.orcamentoDiario, 3500);
+  eq("dias do período", a.dias, 30);
+  const k = D.consolidar([a]);
+  eq("CPL", k.cpl.v, 1250);
+  eq("CTR", k.ctr.v, 2);
+  eq("frequência um mês", k.frequencia.v, 2.5);
+  eq("conversão clique→lead", k.taxaCliqueLead.v, 8);
+  eq("CAC com custos extras", k.cac.v, 15000);
+  eq("custo por venda", k.custoVenda.v, 10000);
+  eq("ROAS", k.roas.v, 5);
+  eq("lead→venda", k.taxaLeadVenda.v, 12.5);
+  eq("lucro estimado = 30% de 5.000 − 1.000 − 500", k.lucro.v, 0);
+  eq("peso dos anúncios no faturamento", k.participacao.v, 25);
+  // sem campanhas: usa o resumo
+  const b = D.linha({ comp: "2026-09", clienteId: "b", resumo: { investimentoCentavos: 30000, impressoes: 10000, alcance: 5000, cliquesLink: 100, tipoResultado: "leads", resultados: 10 } });
+  eq("sem campanhas usa o resumo", [b.conversas, b.leadsForm, b.leads], [null, 10, 10]);
+  eq("orçamento ausente", D.consolidar([b]).orcamentoDiario.v, 1000);
+  eq("lucro sem margem explica", D.consolidar([b]).lucro.v, null);
+  const cart = D.consolidar([a, b], { carteira: true });
+  eq("carteira soma investimento", cart.investimentoCentavos.v, 130000);
+  eq("carteira CPL ponderado", cart.cpl.v, 130000 / 90);
+  eq("carteira alcance somado (um mês por cliente)", cart.alcance.v, 25000);
+  eq("carteira lucro só com quem tem margem e receita", cart.lucro.v, 0);
+  eq("carteira CAC exige custos de todos com vendas", cart.cac.v, 15000);
+  eq("cliente com 2 meses: alcance não somável", D.consolidar([a, { ...a, comp: "2026-10" }]).alcance.v, null);
+  // metas
+  const av = D.avaliar(k, { cplMaxCentavos: 1200, ctrMin: 1.5, roasMin: 6, leadsMin: 100, investimentoMensalCentavos: 200000 }, [a]);
+  const st = Object.fromEntries(av.map(x => [x.k, x.status]));
+  eq("CPL 12,50 vs meta 12,00 = atenção", st.cplMaxCentavos, "perto");
+  eq("CTR acima da meta = ok", st.ctrMin, "ok");
+  eq("ROAS 5 vs 6 = fora", st.roasMin, "fora");
+  eq("leads 80 vs 100 = fora", st.leadsMin, "fora");
+  eq("investimento planejado é acompanhamento", st.investimentoMensalCentavos, "info");
+  eq("saúde = pior status", D.saude(av), "fora");
+  const parcial = D.linha({ comp: "2026-09", resumo: { investimentoCentavos: 1, impressoes: 1, cliquesLink: 0, tipoResultado: "conversas", resultados: 50 }, periodoInicio: "2026-09-01", periodoFim: "2026-09-15" });
+  eq("meta de volume ajustada ao mês parcial", D.avaliar(D.consolidar([parcial]), { leadsMin: 100 }, [parcial])[0].alvo, 50);
+  eq("sem metas", D.saude(D.avaliar(k, {}, [a])), "sem");
+}
 
 console.log(`\n${pass} testes passaram, ${fail} falharam.`);
 process.exit(fail ? 1 : 0);

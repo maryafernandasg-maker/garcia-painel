@@ -77,7 +77,7 @@ const Store = (() => {
     user = u; state.user = { id: u.id, email: u.email };
     state.status = "ready"; emit();
     watch("clientes", "clientes", null, null, rows => { state.clientes = rows; });
-    for (const c of [...Domain.AGENCIA, "relatorios"]) watch("ag:" + c, c, null, null, rows => { (state.ag ||= {})[c] = rows; });
+    for (const c of [...Domain.AGENCIA, "relatorios", "resultados_comerciais", "campanhas"]) watch("ag:" + c, c, null, null, rows => { (state.ag ||= {})[c] = rows; });
   }
   /** Mescla como o "update" do sistema anterior: objetos aninhados são mesclados; o resto é substituído. */
   function merge(base, patch) {
