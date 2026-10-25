@@ -63,6 +63,7 @@ const UI = {
   busca: "",
 };
 
+const NENHUM = "__nenhum";
 const clientesOrdenados = () => (Store.state.clientes || []).slice().sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 const clienteAtual = () => (Store.state.clientes || []).find(c => c.id === UI.clienteId) || null;
 /* acesso aos dados do cliente selecionado (null = carregando) */
@@ -94,9 +95,9 @@ function renderClientPicker() {
   const list = clientesOrdenados();
   if (Store.state.clientes == null) { sel.disabled = true; sel.replaceChildren(h("option", null, Store.state.status === "unavailable" ? "Sem banco" : "Carregando…")); hint.textContent = ""; return; }
   if (!list.length) { sel.disabled = true; sel.replaceChildren(h("option", null, "Nenhum cliente")); hint.textContent = "Cadastre em Clientes."; return; }
-  if (!list.some(c => c.id === UI.clienteId)) { UI.clienteId = (list.find(c => c.status === "ativo" && !c.interno) || list.find(c => c.status === "ativo") || list[0]).id; Prefs.set("cliente", UI.clienteId); }
+  if (UI.clienteId !== NENHUM && !list.some(c => c.id === UI.clienteId)) { UI.clienteId = (list.find(c => c.status === "ativo" && !c.interno) || list.find(c => c.status === "ativo") || list[0]).id; Prefs.set("cliente", UI.clienteId); }
   sel.disabled = false;
-  sel.replaceChildren(...[["ativo", "Ativos"], ["pausado", "Pausados"], ["encerrado", "Encerrados"]].map(([st, label]) => {
+  sel.replaceChildren(h("option", { value: NENHUM, selected: UI.clienteId === NENHUM }, "Nenhum"), ...[["ativo", "Ativos"], ["pausado", "Pausados"], ["encerrado", "Encerrados"]].map(([st, label]) => {
     const items = list.filter(c => (c.status || "ativo") === st);
     return items.length ? h("optgroup", { label }, items.map(c => h("option", { value: c.id, selected: c.id === UI.clienteId }, c.nome))) : null;
   }).filter(Boolean));
@@ -174,6 +175,7 @@ function compPicker() {
 function viewLancar() {
   if (Store.state.clientes == null) return [head("Lançar dados do mês", "Carregando…"), loadingPanel()];
   const c = clienteAtual();
+  if (!c && (Store.state.clientes || []).length) return semCliente("Lançar dados do mês");
   if (!c) return [head("Entregas", "Lançar dados do mês"), emptyPanel("Cadastre um cliente primeiro", "Os dados de cada mês ficam ligados a um cliente.",
     h("button", { class: "btn btn-primary", type: "button", onclick: () => go("clientes") }, "Ir para Clientes"))];
   const top = head(c.nome, "Lançar dados do mês", null, compPicker());

@@ -34,10 +34,15 @@ const periodPicker = () => h("div", { class: "period" }, h("span", { class: "per
 function guard(title) {
   if (Store.state.clientes == null) return [head(title, "Carregando…"), loadingPanel()];
   const c = clienteAtual();
-  if (!c) return [head(title, "Sem cliente"), emptyPanel("Cadastre um cliente primeiro", "As análises são sempre de um cliente.",
-    h("button", { class: "btn btn-primary", type: "button", onclick: () => go("clientes") }, "Ir para Clientes"))];
+  if (!c) return semCliente(title);
   if (!allLoaded()) return [head(c.nome, title), loadingPanel()];
   return null;
+}
+/** Nenhum cliente escolhido no menu (ou nenhum cadastrado) */
+function semCliente(title) {
+  if ((Store.state.clientes || []).length) return [head(title, "Escolha um cliente"), emptyPanel("Nenhum cliente selecionado", "Escolha o cliente no seletor “Cliente”, no topo do menu, para ver os dados de tráfego dele.")];
+  return [head(title, "Sem cliente"), emptyPanel("Cadastre um cliente primeiro", "As análises são sempre de um cliente.",
+    h("button", { class: "btn btn-primary", type: "button", onclick: () => go("clientes") }, "Ir para Clientes"))];
 }
 function semLancamentos(c, title) {
   return [head(c.nome, title), emptyPanel("Nenhum mês lançado para este cliente", "Lance os dados de pelo menos um mês para ver as análises.",
@@ -149,6 +154,7 @@ function leituraPanel(cur, prev, c) {
 function viewVisao() {
   if (Store.state.clientes == null) return [head("Visão geral", "Carregando…"), loadingPanel()];
   const c = clienteAtual();
+  if (!c && (Store.state.clientes || []).length) return semCliente("Visão geral");
   if (!c) return [head("Visão geral", "Bem-vinda ao painel"), emptyPanel("Comece cadastrando um cliente",
     "Cada cliente tem o próprio histórico mensal. Depois do cadastro você escolhe o cliente no menu e lança os dados de cada mês.",
     h("button", { class: "btn btn-primary", type: "button", disabled: !canWrite(), onclick: () => openClienteForm(c) }, "Cadastrar cliente"))];
