@@ -57,6 +57,7 @@ let pass = 0, fail = 0; const ok = (n, c) => { c ? pass++ : fail++; console.log(
   await p.click('.drawer .btn-primary'); await W(1200);
   await p.click('.dialog .btn-primary').catch(() => {}); await W(200);
   ok('calendário com dados', (await p.textContent('.period-note')).includes('05/09/2026'));
+  ok('cartões do calendário sem [object Object]', !(await p.textContent('#view')).includes('[object'));
   // imagem do criativo
   const row = p.locator('tr', { hasText: '02 - [COMBO 02]' }).first();
   await row.locator('input[type=file]').setInputFiles('/tmp/claude-0/-home-claude/4df1c94e-940a-5836-aa39-6f6831511b00/scratchpad/t/criativo.png'); await W(800);
@@ -69,6 +70,8 @@ let pass = 0, fail = 0; const ok = (n, c) => { c ? pass++ : fail++; console.log(
   // persistência
   await p.reload(); await W(500);
   ok('continua logada após recarregar', !(await p.isVisible('#lgEmail')) && await p.isVisible('#side'));
+  await p.click('nav >> text=Visão geral'); await W(300);
+  ok('visão geral sem [object Object]', !(await p.textContent('#view')).includes('[object'));
   await p.click('nav >> text=Conjuntos de anúncios'); await W(300);
   ok('dados persistem após recarregar', (await p.textContent('#view')).includes('[ADV]'));
   await p.click('nav >> text=Anúncios e criativos'); await W(300);

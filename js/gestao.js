@@ -31,7 +31,7 @@ function segFiltro(label, opcoes, valor, onChange) {
   return h("div", { class: "seg", role: "group", "aria-label": label },
     opcoes.map(([k, l]) => h("button", { type: "button", "aria-pressed": String(valor === k), onclick: () => onChange(k) }, l)));
 }
-function kpi(label, valor, sub, cls) {
+function kpiCard(label, valor, sub, cls) {
   return h("div", { class: "panel kpi-card" + (cls ? " " + cls : "") }, h("span", { class: "kpi-card-k" }, label), h("span", { class: "kpi-card-v" }, valor), sub ? h("span", { class: "kpi-card-s" }, sub) : null);
 }
 

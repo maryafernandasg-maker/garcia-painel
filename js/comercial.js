@@ -20,12 +20,12 @@ function viewComercial() {
   const fechados = all.filter(l => l.status === "fechado");
   const fups = abertos.filter(l => l.proximoFollowup && l.proximoFollowup <= hoje);
   const kpis = h("div", { class: "kpis-row" },
-    kpi("Em aberto", Fmt.money(abertos.reduce((s, l) => s + (l.valorPropostaCentavos || 0), 0)), `${abertos.length} ${abertos.length === 1 ? "oportunidade" : "oportunidades"}`),
-    kpi("Reuniões", Fmt.integer(all.filter(l => l.status === "reuniao").length), "na etapa Reunião"),
-    kpi("Propostas", Fmt.integer(all.filter(l => l.status === "proposta").length), "na etapa Proposta"),
-    kpi("Clientes fechados", Fmt.integer(fechados.length)),
-    kpi("Valor mensal vendido", Fmt.money(fechados.reduce((s, l) => s + (l.valorMensalCentavos || 0), 0)), "soma dos fechados"),
-    kpi("Follow-ups para hoje", Fmt.integer(fups.length), fups.length ? "incluindo atrasados" : "nenhum pendente", fups.length ? "bad" : null));
+    kpiCard("Em aberto", Fmt.money(abertos.reduce((s, l) => s + (l.valorPropostaCentavos || 0), 0)), `${abertos.length} ${abertos.length === 1 ? "oportunidade" : "oportunidades"}`),
+    kpiCard("Reuniões", Fmt.integer(all.filter(l => l.status === "reuniao").length), "na etapa Reunião"),
+    kpiCard("Propostas", Fmt.integer(all.filter(l => l.status === "proposta").length), "na etapa Proposta"),
+    kpiCard("Clientes fechados", Fmt.integer(fechados.length)),
+    kpiCard("Valor mensal vendido", Fmt.money(fechados.reduce((s, l) => s + (l.valorMensalCentavos || 0), 0)), "soma dos fechados"),
+    kpiCard("Follow-ups para hoje", Fmt.integer(fups.length), fups.length ? "incluindo atrasados" : "nenhum pendente", fups.length ? "bad" : null));
   const q = Domain.norm(UI.leadBusca);
   let itens = all.filter(l => !q || Domain.norm([l.empresa, l.responsavel, l.nicho, l.cidade].join(" ")).includes(q));
   const colunas = UI.leadVer === "todos" ? ETAPAS_LEAD : ETAPAS_LEAD.filter(([k]) => !["fechado", "perdido"].includes(k));

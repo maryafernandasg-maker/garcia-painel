@@ -72,11 +72,11 @@ function viewFinanceiro() {
       `${partes} ainda ${faltam.length === 1 ? "não foi lançada" : "não foram lançadas"} neste mês. `,
       h("button", { class: "btn btn-sm", type: "button", disabled: !canWrite(), onclick: async e => { e.target.disabled = true; try { await Store.putMany(faltam); toast(`${faltam.length} lançamentos criados.`); } catch (x) { toast(Store.message(x), "bad"); e.target.disabled = false; } } }, "Gerar agora"))) : null;
   const kpis = h("div", { class: "kpis-row" },
-    kpi("A receber no mês", Fmt.money(R.previsto), `${Fmt.money(R.pago)} recebido · ${Fmt.money(R.aberto)} em aberto`),
-    kpi("Em atraso", Fmt.money(R.atrasado), R.atrasado ? "cobranças vencidas" : "nenhuma cobrança vencida", R.atrasado ? "bad" : null),
-    kpi("Despesas do mês", Fmt.money(D.previsto), `${Fmt.money(D.pago)} pago · ${Fmt.money(D.aberto)} a pagar`),
-    kpi("Resultado previsto", Fmt.money(R.previsto - D.previsto), "receitas menos despesas do mês", R.previsto - D.previsto < 0 ? "bad" : "good"),
-    kpi("Saldo realizado", Fmt.money(R.pago - D.pago), "recebido menos pago"));
+    kpiCard("A receber no mês", Fmt.money(R.previsto), `${Fmt.money(R.pago)} recebido · ${Fmt.money(R.aberto)} em aberto`),
+    kpiCard("Em atraso", Fmt.money(R.atrasado), R.atrasado ? "cobranças vencidas" : "nenhuma cobrança vencida", R.atrasado ? "bad" : null),
+    kpiCard("Despesas do mês", Fmt.money(D.previsto), `${Fmt.money(D.pago)} pago · ${Fmt.money(D.aberto)} a pagar`),
+    kpiCard("Resultado previsto", Fmt.money(R.previsto - D.previsto), "receitas menos despesas do mês", R.previsto - D.previsto < 0 ? "bad" : "good"),
+    kpiCard("Saldo realizado", Fmt.money(R.pago - D.pago), "recebido menos pago"));
   let corpo;
   if (UI.finTab === "receitas") corpo = tabelaLanc(doMes.filter(l => l.tipo === "receita"), "receita");
   else if (UI.finTab === "despesas") corpo = tabelaLanc(doMes.filter(l => l.tipo === "despesa"), "despesa");

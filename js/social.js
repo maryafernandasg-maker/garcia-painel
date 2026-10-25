@@ -58,11 +58,11 @@ function viewSocial() {
     h("div", { class: "ec-ag-h" }, `${DIAS_SEMANA[new Date(ds + "T12:00").getDay()]}, ${Fmt.date(ds)}`), doMes.filter(p => p.data === ds).map(chip))) : h("p", { class: "muted-line" }, "Nenhum post com data neste mês."));
   const cont = k => doMes.filter(p => p.formato === k).length;
   const resumo = h("div", { class: "kpis-row" },
-    kpi("Posts no mês", Fmt.integer(doMes.length), `${cont("feed")} feed · ${cont("reels")} reels · ${cont("stories")} stories`),
-    kpi("Publicados", Fmt.integer(doMes.filter(p => p.status === "publicado").length), "com data neste mês"),
-    kpi("Agendados", Fmt.integer(doMes.filter(p => p.status === "agendado").length)),
-    kpi("Em revisão", Fmt.integer(doMes.filter(p => p.status === "revisao").length)),
-    kpi("Sem data", Fmt.integer(semData.length), "fora do calendário"));
+    kpiCard("Posts no mês", Fmt.integer(doMes.length), `${cont("feed")} feed · ${cont("reels")} reels · ${cont("stories")} stories`),
+    kpiCard("Publicados", Fmt.integer(doMes.filter(p => p.status === "publicado").length), "com data neste mês"),
+    kpiCard("Agendados", Fmt.integer(doMes.filter(p => p.status === "agendado").length)),
+    kpiCard("Em revisão", Fmt.integer(doMes.filter(p => p.status === "revisao").length)),
+    kpiCard("Sem data", Fmt.integer(semData.length), "fora do calendário"));
   return [top,
     h("div", { class: "panel" }, socialToolbar(mesNav(comp, c => { UI.socialMes = c; render(); })),
       h("div", { class: "ec" }, h("div", { class: "ec-grid" }, ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(x => h("div", { class: "ec-h" }, x)), cells), agenda),
@@ -173,8 +173,8 @@ function viewPlanejamento() {
   return [top, h("div", { class: "panel" }, bar,
       h("div", { class: "panel-pad", style: "display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center" }, h("h2", { style: "margin:0" }, `${cli.nome} · ${Fmt.month(comp)}`), editar),
       corpo),
-    h("div", { class: "kpis-row" }, kpi("Feed no calendário", Fmt.integer(cont("feed")), plano && plano.qtdFeed ? `Planejado: ${plano.qtdFeed}` : null), kpi("Reels no calendário", Fmt.integer(cont("reels")), plano && plano.qtdReels ? `Planejado: ${plano.qtdReels}` : null),
-      kpi("Stories no calendário", Fmt.integer(cont("stories")), plano && plano.qtdStories ? `Planejado: ${plano.qtdStories}` : null), kpi("Publicados", Fmt.integer(doMes.filter(p => p.status === "publicado").length), `de ${doMes.length} com data no mês`))];
+    h("div", { class: "kpis-row" }, kpiCard("Feed no calendário", Fmt.integer(cont("feed")), plano && plano.qtdFeed ? `Planejado: ${plano.qtdFeed}` : null), kpiCard("Reels no calendário", Fmt.integer(cont("reels")), plano && plano.qtdReels ? `Planejado: ${plano.qtdReels}` : null),
+      kpiCard("Stories no calendário", Fmt.integer(cont("stories")), plano && plano.qtdStories ? `Planejado: ${plano.qtdStories}` : null), kpiCard("Publicados", Fmt.integer(doMes.filter(p => p.status === "publicado").length), `de ${doMes.length} com data no mês`))];
 }
 function openPlanoForm(cli, comp, plano, base) {
   const v = plano || (base ? Object.fromEntries(CAMPOS_PLANO.map(([k]) => [k, base[k]])) : {});
