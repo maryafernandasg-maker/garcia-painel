@@ -84,11 +84,50 @@ function toast(msg, kind) {
 }
 
 /* ---------- menu e seletor de cliente ---------- */
+/* ícones do menu (traço simples, herdam a cor do texto) */
+const ICONES = {
+  inicio: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
+  clientes: "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 6-6h2a6 6 0 0 1 6 6v1M16 3.5a4 4 0 0 1 0 7.5M22 21v-1a6 6 0 0 0-4-5.6",
+  comercial: "M3 7h18v13H3zM8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18",
+  financeiro: "M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+  processos: "M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9",
+  social: "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4",
+  producao: "M4 4h5v16H4zM11 4h5v10h-5zM18 4h2v6h-2z",
+  planejamento: "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z",
+  visao: "M3 3v18h18M7 15l4-4 3 3 6-6",
+  dias: "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4M8 14h2M14 14h2M8 18h2",
+  campanhas: "M3 11l18-8-8 18-2-8z",
+  conjuntos: "M12 3l9 5-9 5-9-5zM3 13l9 5 9-5",
+  anuncios: "M3 5h18v14H3zM3 15l5-5 4 4 3-3 6 6M15 9h.01",
+  funil: "M3 4h18l-7 8v7l-4 2v-9z",
+  analise: "M12 3a6 6 0 0 0-4 10.5V17h8v-3.5A6 6 0 0 0 12 3zM9 21h6",
+  lancamentos: "M12 5v14M5 12h14",
+  relatorios: "M6 2h9l5 5v15H6zM14 2v6h6M9 13h6M9 17h6",
+  historico: "M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 3",
+  dados: "M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3zM4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6",
+};
+const NS = "http://www.w3.org/2000/svg";
+function icone(id) {
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true"); svg.setAttribute("class", "nav-ico");
+  const path = document.createElementNS(NS, "path"); path.setAttribute("d", ICONES[id] || ICONES.inicio);
+  svg.append(path); return svg;
+}
+/** Contadores do menu: { n, alerta } ou null */
+function navBadge(id) {
+  const ag = Store.state.ag || {}, hoje = Fmt.todayISO();
+  if (id === "inicio" && ag.tarefas) { const n = ag.tarefas.filter(t => !t.feita && t.data && t.data <= hoje).length; return n ? { n, alerta: ag.tarefas.some(t => !t.feita && t.data && t.data < hoje) } : null; }
+  if (id === "producao" && ag.posts) { const n = ag.posts.filter(p => p.status !== "publicado").length; return n ? { n } : null; }
+  if (id === "comercial" && ag.leads) { const n = ag.leads.filter(l => l.proximoFollowup && l.proximoFollowup <= hoje && !["fechado", "perdido"].includes(l.status)).length; return n ? { n, alerta: true } : null; }
+  if (id === "financeiro" && ag.financeiro) { const n = ag.financeiro.filter(l => l.tipo === "receita" && !l.cancelado && !l.pagamento && l.vencimento && l.vencimento < hoje).length; return n ? { n, alerta: true } : null; }
+  return null;
+}
 function renderNav() {
   document.getElementById("nav").replaceChildren(...SECTIONS.map(g => h("div", { class: "nav-group" },
     h("div", { class: "nav-label" }, g.group),
-    g.items.map(it => h("a", { href: "#" + it.id, "aria-current": UI.view === it.id ? "page" : null, onclick: e => { e.preventDefault(); go(it.id); } },
-      h("span", null, it.label), it.stage ? h("span", { class: "soon", title: `Chega na fase ${it.stage}` }, `Fase ${it.stage}`) : null)))));
+    g.items.map(it => { const b = navBadge(it.id);
+      return h("a", { href: "#" + it.id, "aria-current": UI.view === it.id ? "page" : null, onclick: e => { e.preventDefault(); go(it.id); } },
+        icone(it.id), h("span", { class: "nav-t" }, it.label), b ? h("span", { class: "nav-n" + (b.alerta ? " alerta" : ""), "aria-label": `${b.n} pendentes` }, String(b.n)) : null); }))));
 }
 function renderClientPicker() {
   const sel = document.getElementById("clientSelect"), hint = document.getElementById("clientHint");

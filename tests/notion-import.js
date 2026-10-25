@@ -50,6 +50,9 @@ let pass = 0, fail = 0; const ok = (n, c) => { c ? pass++ : fail++; console.log(
   ok('mensagens em bloco', await p.locator('.doc .md-pre').count() >= 5);
   await p.click('nav >> text=Financeiro'); await p.click('.tabs >> text=Reserva'); await W(200);
   ok('reservas do Notion', (await p.textContent('.res-grid')).includes('Reinvestimento'));
+  await p.click('nav >> text=Produção'); await W(300); await p.screenshot({ path: OUT + '/24-menu.png' });
+  await p.emulateMedia({ colorScheme: 'dark' }); await W(200); await p.screenshot({ path: OUT + '/25-menu-escuro.png' }); await p.emulateMedia({ colorScheme: 'light' });
+  await p.setViewportSize({ width: 390, height: 844 }); await p.click('#menuBtn'); await W(300); await p.screenshot({ path: OUT + '/26-menu-celular.png' });
   ok('sem erros', errs.length === 0); if (errs.length) console.log(errs);
   console.log(`\n${pass} ok, ${fail} falharam`); await b.close(); srv.close(); process.exit(fail ? 1 : 0);
 })();
