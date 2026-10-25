@@ -651,9 +651,9 @@ textarea{min-height:44px;resize:vertical}
 .md-table td,.md-table th{white-space:normal;min-width:90px}
 
 /* ---------- Menu lateral (cartão escuro flutuante) ---------- */
-:root{--side-bg:#230909;--side-hover:#341010;--side-active:#4A1414;--side-accent:#E0574B}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--side-bg:#0E0505;--side-hover:#1C0B0B;--side-active:#2E1010;--side-accent:#E0574B}}
-:root[data-theme="dark"]{--side-bg:#0E0505;--side-hover:#1C0B0B;--side-active:#2E1010;--side-accent:#E0574B}
+:root{--side-bg:#711C1C;--side-hover:#842A2A;--side-active:#5C1414;--side-accent:#F3E5D1;--side-muted:#E9D3D0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--side-bg:#711C1C;--side-hover:#842A2A;--side-active:#5C1414;--side-accent:#F3E5D1;--side-muted:#E9D3D0}}
+:root[data-theme="dark"]{--side-bg:#711C1C;--side-hover:#842A2A;--side-active:#5C1414;--side-accent:#F3E5D1;--side-muted:#E9D3D0}
 .brand{padding-inline:12px;gap:8px}
 .brand-name{font-size:31px;letter-spacing:.1px}
 .brand-sub{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:10.5px;letter-spacing:.22em;color:var(--side-muted);opacity:.85}
@@ -676,3 +676,5 @@ textarea{min-height:44px;resize:vertical}
   .side{margin:0;top:0;height:100%;border-radius:0 22px 22px 0;box-shadow:none}
   .side.open{box-shadow:0 14px 40px rgba(30,6,6,.35)}
 }
+.client-pick select{background:var(--side-active);border-color:color-mix(in srgb,var(--side-fg) 18%,transparent)}
+.nav a[aria-current="page"]{background:color-mix(in srgb,#000 14%,transparent)}
