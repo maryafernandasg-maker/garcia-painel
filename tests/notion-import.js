@@ -28,6 +28,7 @@ let pass = 0, fail = 0; const ok = (n, c) => { c ? pass++ : fail++; console.log(
   await p.click('nav >> text=Clientes'); await W(200);
   ok('dois clientes', (await p.textContent('.seg')).includes('Ativos (2)'));
   await p.click('nav >> text=Calendário editorial'); await W(300);
+  while (!(await p.textContent('.mes-nav-t')).startsWith('outubro')) { await p.click('.mes-nav button[aria-label="Mês anterior"]'); await W(150); }
   ok('outubro com posts da Garcia', (await p.textContent('.ec-grid')).includes('Antes de colocar dinheiro'));
   await p.screenshot({ path: OUT + '/20-notion-calendario.png', fullPage: true });
   await p.click('.ec-grid .pchip >> text=Antes de colocar dinheiro'); await W(200);

@@ -146,7 +146,7 @@ const Store = (() => {
     async dependentes(clienteId) {
       const out = {};
       for (const c of Domain.DEPENDENTES) { const d = await this.find(c, "clienteId", clienteId); if (d.length) out[c] = d.length; }
-      for (const c of ["financeiro", "tarefas", "posts", "planejamentos", "documentos"]) { const d = await this.find(c, "clienteId", clienteId); if (d.length) out[c] = d.length; }
+      for (const c of ["financeiro", "tarefas", "posts", "planejamentos", "documentos", "otimizacoes"]) { const d = await this.find(c, "clienteId", clienteId); if (d.length) out[c] = d.length; }
       return out;
     },
     async dumpAll() {

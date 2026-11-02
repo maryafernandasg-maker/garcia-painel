@@ -750,7 +750,7 @@ const Domain = (() => {
   const COLLECTIONS = ["clientes", "relatorios", "campanhas", "conjuntos", "anuncios", "resultados_comerciais", "analises", "testes", "diarios", "criativos", "instagram"];
   const DEPENDENTES = COLLECTIONS.filter(c => c !== "clientes");
   /** Coleções da agência (não ligadas a um único relatório de tráfego) */
-  const AGENCIA = ["tarefas", "financeiro", "recorrencias", "reservas", "posts", "planejamentos", "leads", "documentos"];
+  const AGENCIA = ["tarefas", "financeiro", "recorrencias", "reservas", "posts", "planejamentos", "leads", "documentos", "otimizacoes"];
 
   const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
   /** "1 conversa", "12 conversas" */

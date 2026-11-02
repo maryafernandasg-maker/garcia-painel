@@ -33,6 +33,7 @@ const SECTIONS = [
   ]},
   { group: "Tráfego", cliente: true, items: [
     { id: "visao", label: "Visão geral" },
+    { id: "otimizacoes", label: "Otimizações" },
     { id: "dias", label: "Calendário diário" },
     { id: "campanhas", label: "Campanhas" },
     { id: "conjuntos", label: "Conjuntos de anúncios" },
@@ -99,6 +100,7 @@ const ICONES = {
   conjuntos: "M12 3l9 5-9 5-9-5zM3 13l9 5 9-5",
   anuncios: "M3 5h18v14H3zM3 15l5-5 4 4 3-3 6 6M15 9h.01",
   funil: "M3 4h18l-7 8v7l-4 2v-9z",
+  otimizacoes: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
   analise: "M12 3a6 6 0 0 0-4 10.5V17h8v-3.5A6 6 0 0 0 12 3zM9 21h6",
   lancamentos: "M12 5v14M5 12h14",
   relatorios: "M6 2h9l5 5v15H6zM14 2v6h6M9 13h6M9 17h6",
@@ -117,6 +119,7 @@ function navBadge(id) {
   const ag = Store.state.ag || {}, hoje = Fmt.todayISO();
   if (id === "inicio" && ag.tarefas) { const n = ag.tarefas.filter(t => !t.feita && t.data && t.data <= hoje).length; return n ? { n, alerta: ag.tarefas.some(t => !t.feita && t.data && t.data < hoje) } : null; }
   if (id === "producao" && ag.posts) { const n = ag.posts.filter(p => p.status !== "publicado").length; return n ? { n } : null; }
+  if (id === "otimizacoes" && ag.otimizacoes && Store.state.clientes) { const cs = contasOtm(); const late = cs.filter(x => x.sit === "atrasada").length, n = late + cs.filter(x => x.sit === "hoje").length; return n ? { n, alerta: late > 0 } : null; }
   if (id === "comercial" && ag.leads) { const n = ag.leads.filter(l => l.proximoFollowup && l.proximoFollowup <= hoje && !["fechado", "perdido"].includes(l.status)).length; return n ? { n, alerta: true } : null; }
   if (id === "financeiro" && ag.financeiro) { const n = ag.financeiro.filter(l => l.tipo === "receita" && !l.cancelado && !l.pagamento && l.vencimento && l.vencimento < hoje).length; return n ? { n, alerta: true } : null; }
   return null;
@@ -165,7 +168,7 @@ function render() {
   document.body.classList.toggle("auth", st === "login" || st === "config" || st === "connecting");
   if (st === "login" || st === "config" || st === "connecting") { renderAuth(st); return; }
   renderNav(); renderClientPicker(); syncWatches(); renderDbStatus(); renderUser();
-  const VIEWS = { inicio: viewInicio, comercial: viewComercial, financeiro: viewFinanceiro, processos: viewProcessos, social: viewSocial, producao: viewProducao, planejamento: viewPlanejamento, visao: viewVisaoGeral, dias: viewDias, campanhas: viewCampanhasA, conjuntos: viewConjuntosA, anuncios: viewAnunciosA,
+  const VIEWS = { inicio: viewInicio, comercial: viewComercial, financeiro: viewFinanceiro, processos: viewProcessos, social: viewSocial, producao: viewProducao, planejamento: viewPlanejamento, visao: viewVisaoGeral, otimizacoes: viewOtimizacoes, dias: viewDias, campanhas: viewCampanhasA, conjuntos: viewConjuntosA, anuncios: viewAnunciosA,
     analise: viewAnalise, lancamentos: viewLancar, relatorios: viewRelatorios, historico: viewHistorico, clientes: viewClientes, dados: viewDados };
   const body = (VIEWS[UI.view] || viewInicio)();
   document.getElementById("view").replaceChildren(...[dbBanner(), ...[].concat(body)].flat(Infinity).filter(Boolean));
@@ -802,7 +805,7 @@ function openClienteForm(c) {
   });
 }
 
-const NOMES_COLECAO = { relatorios: "relatórios", campanhas: "campanhas", conjuntos: "conjuntos", anuncios: "anúncios", resultados_comerciais: "resultados comerciais", analises: "análises", testes: "testes", diarios: "meses com dados diários", criativos: "imagens de criativos", instagram: "meses com dados do Instagram", financeiro: "lançamentos financeiros", tarefas: "tarefas", posts: "posts", planejamentos: "planejamentos", documentos: "documentos" };
+const NOMES_COLECAO = { relatorios: "relatórios", campanhas: "campanhas", conjuntos: "conjuntos", anuncios: "anúncios", resultados_comerciais: "resultados comerciais", analises: "análises", testes: "testes", diarios: "meses com dados diários", criativos: "imagens de criativos", instagram: "meses com dados do Instagram", financeiro: "lançamentos financeiros", tarefas: "tarefas", posts: "posts", planejamentos: "planejamentos", documentos: "documentos", otimizacoes: "otimizações" };
 function confirmDeleteCliente(c) {
   const msg = h("p", null, "Verificando se há dados ligados a este cliente…");
   const btn = h("button", { class: "btn btn-danger", type: "button", disabled: true }, "Excluir cliente");
@@ -912,7 +915,7 @@ function lerBackup(obj) {
   return { plano, contagem, exportadoEm: obj.exportadoEm };
 }
 const RESTORE = { status: null, b: null };
-const RESTORE_NOMES = { clientes: "clientes", relatorios: "meses", campanhas: "campanhas", conjuntos: "conjuntos", anuncios: "anúncios", resultados_comerciais: "resultados comerciais", analises: "análises", testes: "testes", diarios: "meses com dados diários", criativos: "imagens de criativos", instagram: "meses com dados do Instagram", tarefas: "tarefas", financeiro: "lançamentos financeiros", recorrencias: "despesas fixas", reservas: "reservas", posts: "posts", planejamentos: "planejamentos", leads: "oportunidades comerciais", documentos: "documentos de processos" };
+const RESTORE_NOMES = { clientes: "clientes", relatorios: "meses", campanhas: "campanhas", conjuntos: "conjuntos", anuncios: "anúncios", resultados_comerciais: "resultados comerciais", analises: "análises", testes: "testes", diarios: "meses com dados diários", criativos: "imagens de criativos", instagram: "meses com dados do Instagram", tarefas: "tarefas", financeiro: "lançamentos financeiros", recorrencias: "despesas fixas", reservas: "reservas", posts: "posts", planejamentos: "planejamentos", leads: "oportunidades comerciais", documentos: "documentos de processos", otimizacoes: "otimizações" };
 function restorePanel() {
   const status = h("p", { class: "lead", id: "restoreStatus", style: "margin:0" }, RESTORE.status || "Escolha um arquivo de backup (.json) exportado por este sistema. Registros com o mesmo identificador são substituídos pela versão do backup; registros que não estão no backup continuam como estão.");
   const input = h("input", { id: "restoreFile", type: "file", accept: ".json,application/json", class: "file", disabled: !canWrite() });
