@@ -12,6 +12,7 @@ UI.socialCli = Prefs.get("socialCli") || "";
 UI.socialMes = Fmt.currentComp();
 UI.socialFmt = "todos";
 UI.prodBusca = "";
+UI.prodSel = null; // Set de ids no modo de seleção
 
 const clientesSocial = c => (c.status || "ativo") !== "encerrado" && ((c.servicos || []).includes("social") || c.interno || (AG("posts") || []).some(p => p.clienteId === c.id));
 function setSocialCli(v) { UI.socialCli = v; Prefs.set("socialCli", v || null); render(); }
@@ -84,8 +85,22 @@ function viewProducao() {
   const busca = h("input", { class: "search", id: "prodBusca", type: "search", placeholder: "Buscar post", value: UI.prodBusca, "aria-label": "Buscar post",
     oninput: e => { UI.prodBusca = e.target.value; const pos = e.target.selectionStart; render(); const el = document.getElementById("prodBusca"); el.focus(); try { el.setSelectionRange(pos, pos); } catch {} } });
   const hoje = Fmt.todayISO();
-  return [top, h("div", { class: "panel" }, socialToolbar(busca)),
-    quadro({ colunas: ETAPAS_POST, itens: posts, vazio: "Nenhum post nesta etapa.",
+  // modo de seleção: só conta o que está visível com os filtros atuais
+  const selIds = UI.prodSel ? new Set(posts.filter(p => UI.prodSel.has(p.id)).map(p => p.id)) : null;
+  const btnSel = h("button", { class: "btn" + (UI.prodSel ? " btn-primary" : ""), type: "button", disabled: !canWrite(), onclick: () => { UI.prodSel = UI.prodSel ? null : new Set(); render(); } }, UI.prodSel ? "Concluir seleção" : "Selecionar");
+  const sel = UI.prodSel ? {
+    ids: selIds,
+    alternar: id => { UI.prodSel.has(id) ? UI.prodSel.delete(id) : UI.prodSel.add(id); render(); },
+    alternarVarios: (ids, marcar) => { ids.forEach(id => marcar ? UI.prodSel.add(id) : UI.prodSel.delete(id)); render(); },
+  } : null;
+  const barra = UI.prodSel ? h("div", { class: "sel-bar", role: "region", "aria-label": "Posts selecionados" },
+    h("strong", null, selIds.size ? `${selIds.size} ${selIds.size === 1 ? "post selecionado" : "posts selecionados"}` : "Nenhum post selecionado"),
+    h("div", { class: "actions-row wrap" },
+      h("button", { class: "btn btn-sm", type: "button", disabled: !posts.length || selIds.size === posts.length, onclick: () => { posts.forEach(p => UI.prodSel.add(p.id)); render(); } }, `Selecionar todos (${posts.length})`),
+      selIds.size ? h("button", { class: "btn btn-ghost btn-sm", type: "button", onclick: () => { UI.prodSel.clear(); render(); } }, "Limpar seleção") : null,
+      h("button", { class: "btn btn-danger btn-sm", type: "button", disabled: !selIds.size, onclick: () => excluirPosts([...selIds]) }, selIds.size ? `Excluir ${selIds.size}` : "Excluir"))) : null;
+  return [top, h("div", { class: "panel" }, socialToolbar(h("div", { class: "actions-row" }, busca, btnSel))), barra,
+    quadro({ colunas: ETAPAS_POST, itens: posts, vazio: "Nenhum post nesta etapa.", sel,
       onOpen: openPost,
       onMove: async (p, st) => { try { await Store.patch("posts", p.id, { status: st }); } catch (x) { toast(Store.message(x), "bad"); } },
       card: p => [
@@ -94,6 +109,13 @@ function viewProducao() {
         h("div", { class: "bcard-m" }, [UI.socialCli ? null : nomeCliente(p.clienteId), p.data ? (p.data < hoje && !["publicado"].includes(p.status) ? "⚠ " : "") + Fmt.date(p.data) : "Sem data", PILARES[p.pilar]].filter(Boolean).join(" · ")),
         (() => { const pr = MD.progresso(p.conteudo); return pr.total ? h("div", { class: "bar", title: `${pr.feitas} de ${pr.total} itens do checklist` }, h("i", { style: `width:${Math.round(pr.feitas / pr.total * 100)}%` })) : null; })(),
       ] })];
+}
+
+function excluirPosts(ids) {
+  const n = ids.length;
+  confirmDialog({ title: `Excluir ${n} ${n === 1 ? "post" : "posts"}?`, text: `${n === 1 ? "O post selecionado será apagado" : `Os ${n} posts selecionados serão apagados`} do calendário e da produção. A exclusão é definitiva e não pode ser desfeita.`,
+    confirmLabel: n === 1 ? "Excluir post" : `Excluir ${n} posts`,
+    onConfirm: async () => { await Store.removeAll(ids.map(id => ["posts", id])); UI.prodSel = null; return n === 1 ? "Post excluído." : `${n} posts excluídos.`; } });
 }
 
 /* ---------- post: leitura e edição ---------- */

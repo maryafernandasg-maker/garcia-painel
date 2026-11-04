@@ -9,13 +9,14 @@
   function builder(table) {
     const b = { filters: [], op: "select" };
     const me = () => sess() && sess().user.id;
-    const match = r => r.owner === me() && b.filters.every(([c, v]) => {
+    const match = r => r.owner === me() && b.filters.every(([c, v, inn]) => {
+      if (inn) return v.includes(r[c]);
       if (c === "collection" || c === "id") return r[c] === v;
       const m = /^data->>(.+)$/.exec(c); const x = r.data[m[1]];
       return x != null && String(x) === v;
     });
     Object.assign(b, {
-      select() { return b; }, eq(c, v) { b.filters.push([c, v]); return b; }, range(a, z) { b.rng = [a, z]; return b; },
+      select() { return b; }, eq(c, v) { b.filters.push([c, v]); return b; }, in(c, v) { b.filters.push([c, v, true]); return b; }, range(a, z) { b.rng = [a, z]; return b; },
       maybeSingle() { b.single = true; return b; },
       upsert(row) { b.op = "upsert"; b.row = row; return b; }, update(o) { b.op = "update"; b.obj = o; return b; }, delete() { b.op = "delete"; return b; },
       then(res, rej) {

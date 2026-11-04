@@ -139,13 +139,16 @@ function gavetaLeitura({ title, eyebrow, facts, conteudo, onToggle, actions, ext
  * Quadro (kanban). colunas: [[status, rótulo]]. itens com .status.
  * card(item) devolve o conteúdo do cartão; onMove(item, novoStatus); onOpen(item).
  */
-function quadro({ colunas, itens, card, onMove, onOpen, vazio }) {
+/** sel (opcional): { ids: Set, alternar(id), alternarVarios(ids, marcar) } — modo de seleção */
+function quadro({ colunas, itens, card, onMove, onOpen, vazio, sel }) {
   const ordem = colunas.map(c => c[0]);
   const board = h("div", { class: "board", role: "list" });
   for (const [st, label] of colunas) {
     const doCol = itens.filter(i => i.status === st);
+    const todosCol = sel && doCol.length && doCol.every(i => sel.ids.has(i.id));
     const col = h("section", { class: "board-col", "data-st": st, "aria-label": label },
-      h("div", { class: "board-col-h" }, h("span", null, label), h("span", { class: "count" }, String(doCol.length))));
+      h("div", { class: "board-col-h" }, sel && doCol.length ? h("label", { class: "sel-col" }, h("input", { type: "checkbox", checked: !!todosCol, "aria-label": `Selecionar todos de ${label}`,
+        onchange: e => sel.alternarVarios(doCol.map(i => i.id), e.target.checked) }), h("span", null, label)) : h("span", null, label), h("span", { class: "count" }, String(doCol.length))));
     const list = h("div", { class: "board-list" });
     col.addEventListener("dragover", e => { e.preventDefault(); col.classList.add("over"); });
     col.addEventListener("dragleave", () => col.classList.remove("over"));
@@ -156,8 +159,10 @@ function quadro({ colunas, itens, card, onMove, onOpen, vazio }) {
     });
     for (const it of doCol) {
       const i = ordem.indexOf(st);
-      const el = h("article", { class: "bcard", draggable: "true", role: "listitem" },
-        h("button", { class: "bcard-open", type: "button", onclick: () => onOpen(it) }, card(it)),
+      const marcado = sel && sel.ids.has(it.id);
+      const el = h("article", { class: "bcard" + (sel ? " selecionando" : "") + (marcado ? " marcado" : ""), draggable: sel ? "false" : "true", role: "listitem" },
+        sel ? h("label", { class: "bcard-sel" }, h("input", { type: "checkbox", checked: !!marcado, "aria-label": "Selecionar", onchange: () => sel.alternar(it.id) })) : null,
+        h("button", { class: "bcard-open", type: "button", "aria-pressed": sel ? String(!!marcado) : null, onclick: () => sel ? sel.alternar(it.id) : onOpen(it) }, card(it)),
         h("div", { class: "bcard-move" },
           i > 0 ? h("button", { class: "btn btn-ghost btn-xs", type: "button", "aria-label": `Voltar para ${colunas[i - 1][1]}`, title: `Voltar para ${colunas[i - 1][1]}`, onclick: () => onMove(it, ordem[i - 1]) }, "‹") : h("span"),
           i < ordem.length - 1 ? h("button", { class: "btn btn-ghost btn-xs", type: "button", "aria-label": `Avançar para ${colunas[i + 1][1]}`, title: `Avançar para ${colunas[i + 1][1]}`, onclick: () => onMove(it, ordem[i + 1]) }, "›") : h("span")));

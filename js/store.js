@@ -142,7 +142,13 @@ const Store = (() => {
       if (await this.get("relatorios", id)) return false;
       await this.put("relatorios", id, data); return true;
     },
-    async removeAll(list) { for (const [col, id] of list) ok(await sb.from("docs").delete().eq("collection", col).eq("id", id)); await Promise.all([...new Set(list.map(x => x[0]))].map(refresh)); },
+    async removeAll(list) {
+      const porCol = {};
+      for (const [col, id] of list) (porCol[col] ||= []).push(id);
+      for (const [col, ids] of Object.entries(porCol))
+        for (let i = 0; i < ids.length; i += 100) ok(await sb.from("docs").delete().eq("collection", col).in("id", ids.slice(i, i + 100)));
+      await Promise.all(Object.keys(porCol).map(refresh));
+    },
     async dependentes(clienteId) {
       const out = {};
       for (const c of Domain.DEPENDENTES) { const d = await this.find(c, "clienteId", clienteId); if (d.length) out[c] = d.length; }

@@ -64,6 +64,22 @@ const BR = iso => iso.split('-').reverse().join('/');
   await p.dragAndDrop('.board-col[data-st=conteudo] .bcard', '.board-col[data-st=revisao]'); await W(300);
   ok('arrastar move para Revisão', (await p.locator('.board-col[data-st=revisao]').textContent()).includes('Combo 1'));
   await p.screenshot({ path: OUT + '/11-producao.png', fullPage: true });
+  // seleção e exclusão em lote
+  await p.click('.toolbar >> text=Selecionar'); await W(200);
+  ok('modo seleção mostra caixinhas', await p.locator('.bcard-sel input').count() === 2);
+  await p.click('.bcard >> text=Bastidores'); await W(150);
+  ok('clicar no cartão seleciona', (await p.textContent('.sel-bar')).includes('1 post selecionado'));
+  await p.click('.sel-bar >> text=Selecionar todos (2)'); await W(150);
+  ok('selecionar todos', (await p.textContent('.sel-bar')).includes('2 posts selecionados'));
+  await p.click('.sel-bar >> text=Limpar seleção'); await W(150);
+  await p.locator('.board-col[data-st=ideia] .sel-col input').check(); await W(150);
+  ok('selecionar a coluna inteira', (await p.textContent('.sel-bar')).includes('1 post selecionado'));
+  await p.screenshot({ path: OUT + '/11b-producao-selecao.png', fullPage: true });
+  await p.click('.sel-bar >> text=Excluir 1'); await W(150);
+  ok('confirma antes de excluir', (await p.textContent('.dialog')).includes('Excluir 1 post?'));
+  await p.click('.dialog >> text=Excluir post'); await W(500);
+  ok('post excluído e o outro mantido', !(await p.textContent('.board')).includes('Bastidores') && (await p.textContent('.board')).includes('Combo 1'));
+  ok('sai do modo seleção', await p.locator('.sel-bar').count() === 0);
   // planejamento
   await p.click('nav >> text=Planejamento do mês'); await W(200);
   await p.click('text=Criar planejamento'); await p.fill('#gf-objetivo', 'Ser mais conhecida em Blumenau'); await p.fill('#gf-qtdFeed', '13'); await p.click('form.drawer button[type=submit]'); await W(300);

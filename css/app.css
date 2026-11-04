@@ -763,3 +763,14 @@ textarea{min-height:44px;resize:vertical}
 .otm-hist td{vertical-align:top}
 .otm-txt{max-width:240px;min-width:140px;white-space:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:13px;line-height:1.4}
 .otm-hist input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
+
+/* ---------- seleção no quadro ---------- */
+.sel-bar{position:sticky;top:12px;z-index:5;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;margin:0 0 14px;background:var(--panel);border:1px solid var(--accent);border-radius:var(--r);box-shadow:0 8px 24px rgba(30,6,6,.12)}
+.sel-bar strong{font-size:14px}
+.sel-col{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.sel-col input,.bcard-sel input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;margin:0}
+.bcard.selecionando{cursor:pointer;position:relative}
+.bcard-sel{position:absolute;top:8px;right:8px;display:flex;padding:2px;cursor:pointer}
+.bcard.selecionando .bcard-open{padding-right:34px}
+.bcard.marcado{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--panel))}
+@media (max-width:720px){.sel-bar{top:64px}}
