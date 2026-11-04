@@ -82,8 +82,17 @@ const BR = iso => iso.split('-').reverse().join('/');
   ok('sai do modo seleção', await p.locator('.sel-bar').count() === 0);
   // planejamento
   await p.click('nav >> text=Planejamento do mês'); await W(200);
-  await p.click('text=Criar planejamento'); await p.fill('#gf-objetivo', 'Ser mais conhecida em Blumenau'); await p.fill('#gf-qtdFeed', '13'); await p.click('form.drawer button[type=submit]'); await W(300);
-  ok('planejamento salvo', (await p.textContent('#view')).includes('Ser mais conhecida') && (await p.textContent('#view')).includes('Planejado: 13'));
+  await p.click('text=Criar planejamento'); await W(150);
+  ok('editor abre com o modelo', (await p.inputValue('#planTexto')).includes('## Objetivo do mês'));
+  await p.fill('#planTexto', '## Objetivo do mês\n\nSer mais conhecida em Blumenau\n\n## Tarefas\n\n- [ ] Gravar reels do combo\n- **Feed:** 13'); 
+  await p.click('.plan-head >> text=Salvar'); await W(400);
+  const pl = await p.textContent('.plan-page');
+  ok('planejamento salvo como página', pl.includes('Ser mais conhecida') && pl.includes('Feed:') && await p.locator('.plan-page .md-h').count() === 2);
+  await p.locator('.plan-page .md input[type=checkbox]').first().check(); await W(400);
+  ok('caixinha marcada grava no texto', await p.evaluate(() => JSON.parse(localStorage.getItem('fakeSupaRows')).some(r => r.collection === 'planejamentos' && r.data.texto.includes('[x] Gravar'))));
+  await p.screenshot({ path: OUT + '/12-planejamento.png', fullPage: true });
+  await p.click('.plan-head >> text=Editar'); await W(150); await p.fill('#planTexto', 'mudei'); await p.click('.plan-head >> text=Cancelar'); await W(150);
+  ok('cancelar não altera', (await p.textContent('.plan-page')).includes('Ser mais conhecida'));
 
   // financeiro
   await p.click('nav >> text=Financeiro'); await W(250);

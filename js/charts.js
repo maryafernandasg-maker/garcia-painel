@@ -17,7 +17,7 @@ const Charts = (() => {
    */
   function svg(opts) {
     const W = opts.width || 640, H = opts.height || 220;
-    const c = opts.colors, font = opts.font || "Jost, sans-serif";
+    const c = opts.colors, font = opts.font || "Bricolage Grotesque, sans-serif";
     const fmt = opts.fmt || "int";
     const fs = opts.fontSize || 10;
     const vals = opts.values.map(v => (typeof v === "number" && isFinite(v) ? v : null));
@@ -67,7 +67,7 @@ const Charts = (() => {
   /** Barras agrupadas de duas séries com o mesmo formato (ex.: investimento × faturamento).
       opts: { labels[], a[], b[], fmt, width, height, colors: {a, b, text, muted, grid}, font } */
   function duplo(opts) {
-    const W = opts.width || 640, H = opts.height || 240, c = opts.colors, font = opts.font || "Jost, sans-serif", fs = 10, fmt = opts.fmt || "moeda";
+    const W = opts.width || 640, H = opts.height || 240, c = opts.colors, font = opts.font || "Bricolage Grotesque, sans-serif", fs = 10, fmt = opts.fmt || "moeda";
     const num = v => (typeof v === "number" && isFinite(v) ? v : null);
     const A = opts.a.map(num), B = opts.b.map(num), n = A.length;
     const max = niceMax(Math.max(0, ...A.filter(v => v != null), ...B.filter(v => v != null)));

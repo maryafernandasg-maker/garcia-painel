@@ -85,7 +85,7 @@ function evolucao(comps, title) {
   const values = comps.map(comp => { const c = consMes(comp); return c ? s.get(c) : null; });
   const box = h("div", { class: "chart", id: "chart-evolucao" });
   const w = Math.max(320, Math.min(1100, (document.getElementById("view")?.clientWidth || 900) - 40));
-  box.append(svgNode(Charts.svg({ labels: comps.map(Fmt.monthTiny), values, fmt: s.fmt, kind: s.kind, width: w, height: 230, colors: chartColors(), font: "Jost, sans-serif" })));
+  box.append(svgNode(Charts.svg({ labels: comps.map(Fmt.monthTiny), values, fmt: s.fmt, kind: s.kind, width: w, height: 230, colors: chartColors(), font: "Bricolage Grotesque, sans-serif" })));
   const comDado = values.filter(v => v != null).length;
   return h("div", { class: "panel panel-pad chart-panel" },
     h("div", { class: "chart-head" }, h("h2", null, title || "Evolução mensal"),

@@ -126,7 +126,7 @@ function graficoCarteira(clientes, idx) {
   const box = h("div", { class: "chart" });
   const w = Math.max(320, Math.min(1100, (document.getElementById("view")?.clientWidth || 900) - 40));
   box.append(svgNode(Charts.duplo({ labels: comps.map(Fmt.monthTiny), a: cons.map(k => k && k.investimentoCentavos.v), b: cons.map(k => k && k.receita.v), nomeA: "Investimento", nomeB: "Faturamento dos anúncios",
-    fmt: "moeda", width: w, height: 240, colors: { a: g("--hero-b"), b: g("--accent"), text: g("--fg"), muted: g("--soft"), grid: g("--line") }, font: "Jost, sans-serif" })));
+    fmt: "moeda", width: w, height: 240, colors: { a: g("--hero-b"), b: g("--accent"), text: g("--fg"), muted: g("--soft"), grid: g("--line") }, font: "Bricolage Grotesque, sans-serif" })));
   return h("div", { class: "panel panel-pad chart-panel" },
     h("div", { class: "chart-head" }, h("h2", null, "Investimento × faturamento dos anúncios"),
       h("div", { class: "legend" }, h("span", null, h("i", { class: "lg-a" }), "Investimento"), h("span", null, h("i", { class: "lg-b" }), "Faturamento dos anúncios"))),

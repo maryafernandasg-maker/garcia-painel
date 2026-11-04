@@ -174,8 +174,16 @@ const CAMPOS_PLANO = [
   ["publico", "Público"], ["pilares", "Pilares de conteúdo"], ["qtdFeed", "Quantidade de feed"], ["qtdReels", "Quantidade de reels"], ["qtdStories", "Frequência de stories"],
   ["campanhas", "Campanhas"], ["observacoes", "Observações"],
 ];
+const MODELO_PLANO = "## Objetivo do mês\n\n\n\n## Meta\n\n\n\n## Produto ou serviço foco\n\n\n\n## Oferta\n\n\n\n## Datas importantes\n\n- \n\n## Público\n\n\n\n## Pilares de conteúdo\n\n- \n\n## Quantidade de posts\n\n- **Feed:** \n- **Reels:** \n- **Stories:** \n\n## Campanhas\n\n\n\n## Observações\n\n";
+/** Texto do planejamento: o texto da página ou, em planejamentos antigos, os campos convertidos em seções */
+function textoPlano(pl) {
+  if (!pl) return "";
+  if (pl.texto != null) return pl.texto;
+  return CAMPOS_PLANO.filter(([k]) => pl[k]).map(([k, l]) => `## ${l}\n\n${pl[k]}`).join("\n\n");
+}
+UI.planEdit = null; // { id, texto }
 function viewPlanejamento() {
-  const top = head("Social media", "Planejamento do mês", "O combinado de cada cliente para o mês: objetivo, oferta, pilares e quantidade de posts.");
+  const top = head("Social media", "Planejamento do mês", "Uma página por cliente e por mês, escrita como um documento.");
   const all = AG("planejamentos"), posts = AG("posts");
   if (all == null || posts == null || Store.state.clientes == null) return [top, loadingPanel()];
   const lista = clientesOrdenados().filter(clientesSocial);
@@ -185,33 +193,42 @@ function viewPlanejamento() {
   const plano = all.find(x => x.id === id);
   const doMes = posts.filter(p => p.clienteId === cli.id && p.data && p.data.startsWith(comp));
   const cont = k => doMes.filter(p => p.formato === k).length;
-  const anteriores = all.filter(x => x.clienteId === cli.id && x.id !== id).sort((a, b) => b.competencia.localeCompare(a.competencia));
-  const bar = h("div", { class: "toolbar" }, clienteFiltro("planCli", cli.id, setSocialCli, { incluir: clientesSocial, semTodos: true }), mesNav(comp, c => { UI.socialMes = c; render(); }));
-  const editar = h("button", { class: "btn btn-primary", type: "button", disabled: !canWrite(), onclick: () => openPlanoForm(cli, comp, plano) }, plano ? "Editar planejamento" : "Criar planejamento");
-  const corpo = plano
-    ? h("dl", { class: "dl dl-plan" }, CAMPOS_PLANO.filter(([k]) => plano[k]).map(([k, l]) => h("div", null, h("dt", null, l), h("dd", null, MD.render(plano[k])))))
-    : h("div", { class: "empty" }, h("div", { class: "empty-title" }, `Sem planejamento para ${Fmt.month(comp)}`), h("p", null, anteriores.length ? `Último planejamento: ${Fmt.month(anteriores[0].competencia)}.` : "Crie o primeiro planejamento deste cliente."),
-        anteriores.length ? h("button", { class: "btn", type: "button", disabled: !canWrite(), onclick: () => openPlanoForm(cli, comp, null, anteriores[0]) }, `Começar a partir de ${Fmt.monthShort(anteriores[0].competencia)}`) : null);
-  return [top, h("div", { class: "panel" }, bar,
-      h("div", { class: "panel-pad", style: "display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center" }, h("h2", { style: "margin:0" }, `${cli.nome} · ${Fmt.month(comp)}`), editar),
-      corpo),
-    h("div", { class: "kpis-row" }, kpiCard("Feed no calendário", Fmt.integer(cont("feed")), plano && plano.qtdFeed ? `Planejado: ${plano.qtdFeed}` : null), kpiCard("Reels no calendário", Fmt.integer(cont("reels")), plano && plano.qtdReels ? `Planejado: ${plano.qtdReels}` : null),
-      kpiCard("Stories no calendário", Fmt.integer(cont("stories")), plano && plano.qtdStories ? `Planejado: ${plano.qtdStories}` : null), kpiCard("Publicados", Fmt.integer(doMes.filter(p => p.status === "publicado").length), `de ${doMes.length} com data no mês`))];
-}
-function openPlanoForm(cli, comp, plano, base) {
-  const v = plano || (base ? Object.fromEntries(CAMPOS_PLANO.map(([k]) => [k, base[k]])) : {});
-  gavetaForm({
-    title: `Planejamento · ${cli.nome} · ${Fmt.monthShort(comp)}`, values: v,
-    spec: [
-      { k: "objetivo", l: "Objetivo do mês", type: "textarea", rows: 2 }, { k: "meta", l: "Meta", type: "textarea", rows: 2 },
-      { k: "foco", l: "Produto ou serviço foco", type: "textarea", rows: 2 }, { k: "oferta", l: "Oferta", type: "textarea", rows: 3 },
-      { k: "datas", l: "Datas importantes", type: "textarea", rows: 2 }, { k: "publico", l: "Público", type: "textarea", rows: 2 },
-      { k: "pilares", l: "Pilares de conteúdo", max: 300 },
-      { row: [{ k: "qtdFeed", l: "Quantidade de feed", max: 200 }, { k: "qtdReels", l: "Quantidade de reels", max: 200 }] },
-      { k: "qtdStories", l: "Frequência de stories", max: 200 }, { k: "campanhas", l: "Campanhas", type: "textarea", rows: 2 },
-      { k: "observacoes", l: "Observações", type: "textarea", rows: 6 },
-    ],
-    onDelete: plano ? () => excluirDoc("planejamentos", plano, "este planejamento") : null,
-    onSave: async d => { await Store.put("planejamentos", `${cli.id}_${comp}`, { ...(plano || {}), ...d, clienteId: cli.id, competencia: comp, schema: Domain.SCHEMA }); return "Planejamento salvo."; },
-  });
+  const doCliente = all.filter(x => x.clienteId === cli.id).sort((a, b) => b.competencia.localeCompare(a.competencia));
+  const anterior = doCliente.find(x => x.competencia < comp);
+  const editando = UI.planEdit && UI.planEdit.id === id;
+  const bar = h("div", { class: "toolbar" }, clienteFiltro("planCli", cli.id, v => { UI.planEdit = null; setSocialCli(v); }, { incluir: clientesSocial, semTodos: true }), mesNav(comp, c => { UI.planEdit = null; UI.socialMes = c; render(); }));
+  const editar = (texto) => { UI.planEdit = { id, texto }; render(); setTimeout(() => document.getElementById("planTexto")?.focus(), 0); };
+  let pagina;
+  if (editando) {
+    const ta = h("textarea", { id: "planTexto", class: "plan-editor", "aria-label": "Texto do planejamento", spellcheck: "true", oninput: e => { UI.planEdit.texto = e.target.value; } });
+    ta.value = UI.planEdit.texto;
+    const salvar = h("button", { class: "btn btn-primary", type: "button", onclick: async () => {
+      salvar.disabled = true; salvar.textContent = "Salvando…";
+      try { await Store.put("planejamentos", id, { ...(plano || {}), texto: UI.planEdit.texto, clienteId: cli.id, competencia: comp, schema: Domain.SCHEMA }); UI.planEdit = null; toast("Planejamento salvo."); render(); }
+      catch (x) { toast(Store.message(x), "bad"); salvar.disabled = false; salvar.textContent = "Salvar"; } } }, "Salvar");
+    pagina = h("article", { class: "plan-page editing" },
+      h("div", { class: "plan-head" }, h("div", null, h("div", { class: "eyebrow" }, `${cli.nome} · ${Fmt.month(comp)}`), h("h2", null, "Editando o planejamento")),
+        h("div", { class: "actions-row" }, h("button", { class: "btn", type: "button", onclick: () => { UI.planEdit = null; render(); } }, "Cancelar"), salvar)),
+      h("p", { class: "plan-dica" }, "Escreva como num documento. ## cria um título, - cria uma lista, - [ ] cria uma caixinha para marcar e **texto** deixa em negrito."), ta);
+  } else if (plano) {
+    const texto = textoPlano(plano);
+    pagina = h("article", { class: "plan-page" },
+      h("div", { class: "plan-head" }, h("div", null, h("div", { class: "eyebrow" }, "Planejamento do mês"), h("h2", null, `${cli.nome} · ${Fmt.month(comp)}`)),
+        h("div", { class: "actions-row" }, h("button", { class: "btn btn-ghost btn-sm", type: "button", disabled: !canWrite(), onclick: () => excluirDoc("planejamentos", plano, "este planejamento") }, "Excluir"),
+          h("button", { class: "btn btn-primary", type: "button", disabled: !canWrite(), onclick: () => editar(texto) }, "Editar"))),
+      texto.trim() ? MD.render(texto, async (idx, checked) => { try { await Store.patch("planejamentos", id, { texto: MD.toggle(textoPlano(all.find(x => x.id === id) || plano), idx, checked) }); } catch (x) { toast(Store.message(x), "bad"); } })
+        : h("p", { class: "muted-line" }, "Página em branco. Clique em Editar para escrever."));
+  } else {
+    pagina = h("div", { class: "plan-page" }, h("div", { class: "empty" }, h("div", { class: "empty-title" }, `Sem planejamento para ${Fmt.month(comp)}`),
+      h("p", null, anterior ? `Último planejamento: ${Fmt.month(anterior.competencia)}.` : "Crie a página de planejamento deste mês."),
+      h("div", { class: "actions-row wrap", style: "justify-content:center" },
+        h("button", { class: "btn btn-primary", type: "button", disabled: !canWrite(), onclick: () => editar(MODELO_PLANO) }, "Criar planejamento"),
+        anterior ? h("button", { class: "btn", type: "button", disabled: !canWrite(), onclick: () => editar(textoPlano(anterior)) }, `Começar a partir de ${Fmt.monthShort(anterior.competencia)}`) : null)));
+  }
+  const meses = h("nav", { class: "plan-meses", "aria-label": "Planejamentos do cliente" }, h("div", { class: "plan-label" }, "Meses planejados"),
+    doCliente.length ? doCliente.map(x => h("button", { type: "button", class: "doc-link", "aria-current": x.id === id ? "true" : null, onclick: () => { UI.planEdit = null; UI.socialMes = x.competencia; render(); } }, h("span", null, Fmt.month(x.competencia)))) : h("p", { class: "muted-line" }, "Nenhum ainda."));
+  const resumo = h("div", { class: "plan-resumo" }, h("div", { class: "plan-label" }, "No calendário"),
+    [["Feed", cont("feed")], ["Reels", cont("reels")], ["Stories", cont("stories")], ["Publicados", doMes.filter(p => p.status === "publicado").length]].map(([l, n]) => h("div", { class: "plan-n" }, h("span", null, l), h("strong", null, Fmt.integer(n)))),
+    h("button", { class: "linkbtn", type: "button", onclick: () => go("social") }, "Abrir calendário"));
+  return [top, h("div", { class: "panel" }, bar), h("div", { class: "plan-layout" }, h("div", { class: "panel plan-main" }, pagina), h("aside", { class: "panel plan-side" }, resumo, meses))];
 }

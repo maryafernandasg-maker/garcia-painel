@@ -39,7 +39,8 @@ let pass = 0, fail = 0; const ok = (n, c) => { c ? pass++ : fail++; console.log(
   ok('59 posts no quadro', await p.locator('.bcard').count() === 59);
   await p.click('nav >> text=Planejamento do mês'); await W(200);
   await p.selectOption('#planCli', { label: 'Silvia Salgados' }); await W(150);
-  await p.click('.mes-nav button[aria-label="Mês anterior"]'); await W(200);
+  await p.click('.plan-meses >> text=setembro de 2026'); await W(200);
+  await p.screenshot({ path: OUT + '/27-notion-planejamento.png', fullPage: true });
   ok('planejamento de setembro da Silvia', (await p.textContent('#view')).includes('Combos (salgados + docinhos)'));
   await p.click('nav >> text=Processos'); await W(300);
   ok('jornada abre primeiro', (await p.textContent('.doc h2')).includes('Jornada'));
