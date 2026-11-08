@@ -222,5 +222,20 @@ eq("diferença em p.p.", Fmt.signed("pct", -0.5), "−0,50 p.p.");
   eq("sem metas", D.saude(D.avaliar(k, {}, [a])), "sem");
 }
 
+/* ---- cobrança pós-paga ---- */
+{
+  const kie = { diaVencimento: 5, inicioGestao: "2026-10-31", cobranca: "pos" };
+  eq("pós-pago: serviço de novembro vence 05/12", Domain.vencimentoDe(kie, "2026-11"), "2026-12-05");
+  eq("pós-pago: primeiro vencimento um mês depois do início", Domain.primeiroVencimento(kie), "2026-12-05");
+  eq("pós-pago: próximo vencimento a partir de 08/11 é 05/12", Domain.proximoVencimento(kie, "2026-11-08"), "2026-12-05");
+  eq("pós-pago: em 04/11 não vence dia 05/11", Domain.proximoVencimento(kie, "2026-11-04"), "2026-12-05");
+  const pre = { diaVencimento: 15, inicioGestao: "2026-09-05" };
+  eq("pré-pago: vence no próprio mês", Domain.vencimentoDe(pre, "2026-10"), "2026-10-15");
+  eq("pré-pago: primeiro vencimento no mês do início", Domain.primeiroVencimento(pre), "2026-09-15");
+  eq("pré-pago: próximo vencimento", Domain.proximoVencimento(pre, "2026-11-20"), "2026-12-15");
+  eq("dia 31 em fevereiro", Domain.vencimentoDe({ diaVencimento: 31, cobranca: "pos" }, "2027-01"), "2027-02-28");
+  eq("cliente salvo como pós-pago", Domain.validateCliente({ nome: "Kie", status: "ativo", cobranca: "pos" }, []).data.cobranca, "pos");
+}
+
 console.log(`\n${pass} testes passaram, ${fail} falharam.`);
 process.exit(fail ? 1 : 0);

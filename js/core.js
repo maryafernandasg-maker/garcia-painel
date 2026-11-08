@@ -732,6 +732,31 @@ const Domain = (() => {
   };
   const STATUS = { ativo: "Ativo", pausado: "Pausado", encerrado: "Encerrado" };
   const SERVICOS = { trafego: "Tráfego pago", social: "Social media" };
+  const COBRANCA = { pre: "Pré-pago (paga no mês do serviço)", pos: "Pós-pago (paga no mês seguinte ao serviço)" };
+  const _addMes = (comp, n) => { const [y, m] = comp.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
+  const _diaEm = (comp, dia) => { const [y, m] = comp.split("-").map(Number); return `${comp}-${String(Math.min(dia, new Date(Date.UTC(y, m, 0)).getUTCDate())).padStart(2, "0")}`; };
+  /** Vencimento da mensalidade de uma competência. Pós-pago: vence no mês seguinte ao do serviço. */
+  function vencimentoDe(c, comp) {
+    const alvo = c.cobranca === "pos" ? _addMes(comp, 1) : comp;
+    return _diaEm(alvo, c.diaVencimento || 10);
+  }
+  /** Primeiro vencimento possível: o dia de vencimento a partir do início (pós-pago: a partir de um mês depois do início). */
+  function primeiroVencimento(c) {
+    if (!c.inicioGestao) return null;
+    let base = c.inicioGestao;
+    if (c.cobranca === "pos") { const [y, m, d] = base.split("-").map(Number); const comp = _addMes(base.slice(0, 7), 1); base = _diaEm(comp, d); }
+    let comp = base.slice(0, 7), dt = _diaEm(comp, c.diaVencimento || 10);
+    if (dt < base) dt = _diaEm(_addMes(comp, 1), c.diaVencimento || 10);
+    return dt;
+  }
+  /** Próximo vencimento a partir de uma data (inclusive), respeitando o primeiro vencimento. */
+  function proximoVencimento(c, desdeISO) {
+    if (!c.diaVencimento) return null;
+    let comp = desdeISO.slice(0, 7), dt = _diaEm(comp, c.diaVencimento);
+    if (dt < desdeISO) dt = _diaEm(_addMes(comp, 1), c.diaVencimento);
+    const p = primeiroVencimento(c);
+    return p && dt < p ? p : dt;
+  }
   const OBJ_META = { engajamento: "Engajamento", leads: "Cadastros (leads)", vendas: "Vendas", trafego: "Tráfego", reconhecimento: "Reconhecimento", app: "Promoção do app" };
   const STATUS_CAMP = { ativa: "Ativa", pausada: "Pausada", concluida: "Concluída" };
   const TIPOS = {
@@ -986,7 +1011,7 @@ const Domain = (() => {
       data: ok ? { nome, segmento: segmento || null, cidade: cidade || null, objetivo, status,
         ticketMedioCentavos: ticket.value, inicioGestao: inicio, observacoes: observacoes || null, moeda: "BRL", schema: SCHEMA,
         servicos, mensalidadeCentavos: mens.value, diaVencimento: venc ? Number(venc) : null, instagram: instagram || null,
-        contatoNome: contatoNome || null, telefone: telefone || null, email: email || null, interno: !!input.interno } : null,
+        contatoNome: contatoNome || null, telefone: telefone || null, email: email || null, interno: !!input.interno, cobranca: input.cobranca === "pos" ? "pos" : "pre" } : null,
     };
   }
 
@@ -999,7 +1024,7 @@ const Domain = (() => {
   }
 
   return { SERVICOS, VARIAVEIS, STATUS_TESTE, STATUS_ACAO, validateAcoes, SCHEMA, OBJETIVOS, STATUS, OBJ_META, STATUS_CAMP, TIPOS, TIPOS_CURTO, FORMATOS, ATRIBUICAO, TIPO_PADRAO,
-    COLLECTIONS, DEPENDENTES, AGENCIA, SPEC, flat, resolveOptions, parseFields, validate, validateCliente, relatorioId, criativoId, novoId, norm, tipoLabel, qtdTipo };
+    COLLECTIONS, DEPENDENTES, AGENCIA, SPEC, flat, resolveOptions, parseFields, validate, validateCliente, COBRANCA, vencimentoDe, primeiroVencimento, proximoVencimento, relatorioId, criativoId, novoId, norm, tipoLabel, qtdTipo };
 })();
 
 /* =====================================================================

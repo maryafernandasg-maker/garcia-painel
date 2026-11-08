@@ -41,8 +41,10 @@ function planoGeracao(comp) {
     if ((c.status || "ativo") !== "ativo" || c.interno || !c.mensalidadeCentavos) continue;
     const id = `rec_${c.id}_${comp}`;
     if (ids.has(id)) continue;
-    novos.push(["financeiro", id, { tipo: "receita", origem: "mensalidade", clienteId: c.id, descricao: `Mensalidade ${c.nome}`, categoria: "mensalidade", valorCentavos: c.mensalidadeCentavos,
-      vencimento: c.diaVencimento ? venceEm(comp, c.diaVencimento) : `${comp}-10`, competencia: comp, pagamento: null, forma: null, cancelado: false, observacoes: null, schema: Domain.SCHEMA }]);
+    const vencimento = Domain.vencimentoDe(c, comp), primeiro = Domain.primeiroVencimento(c);
+    if (primeiro && vencimento < primeiro) continue; // antes de começar a cobrança
+    novos.push(["financeiro", id, { tipo: "receita", origem: "mensalidade", clienteId: c.id, descricao: `Mensalidade ${c.nome}${c.cobranca === "pos" ? ` (serviço de ${Fmt.month(comp)})` : ""}`, categoria: "mensalidade", valorCentavos: c.mensalidadeCentavos,
+      vencimento, competencia: comp, pagamento: null, forma: null, cancelado: false, observacoes: null, schema: Domain.SCHEMA }]);
   }
   for (const r of AG("recorrencias") || []) {
     if (!r.ativa) continue;

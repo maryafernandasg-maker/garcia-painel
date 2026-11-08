@@ -94,6 +94,10 @@ const BR = iso => iso.split('-').reverse().join('/');
   await p.click('.plan-head >> text=Editar'); await W(150); await p.fill('#planTexto', 'mudei'); await p.click('.plan-head >> text=Cancelar'); await W(150);
   ok('cancelar não altera', (await p.textContent('.plan-page')).includes('Ser mais conhecida'));
 
+  // cliente pós-pago começando hoje: nada a cobrar neste mês
+  const hojeISO = await p.evaluate(() => Fmt.todayISO());
+  await novoCliente('Kiemillyn Doces', async () => { await p.fill('#cf-mensalidade', '500,00'); await p.fill('#cf-diaVencimento', '5'); await p.fill('#cf-inicioGestao', hojeISO); await p.selectOption('#cf-cobranca', 'pos'); });
+  ok('cliente pós-pago marcado na lista', (await p.locator('tr', { hasText: 'Kiemillyn Doces' }).textContent()).includes('Pós-pago'));
   // financeiro
   await p.click('nav >> text=Financeiro'); await W(250);
   ok('avisa mensalidade não lançada', (await p.textContent('.banner.warn')).includes('Falta 1 lançamento') && (await p.textContent('.banner.warn')).includes('1 mensalidade de cliente ativo'));

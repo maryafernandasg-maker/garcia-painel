@@ -60,8 +60,7 @@ function viewInicio() {
   const deHoje = abertas.filter(t => t.data === hoje);
   // vencimentos dos próximos 10 dias
   const venc = ativos.filter(c => c.diaVencimento).map(c => {
-    let dt = new Date(d.getFullYear(), d.getMonth(), Math.min(c.diaVencimento, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
-    if (dt < new Date(d.getFullYear(), d.getMonth(), d.getDate())) dt = new Date(d.getFullYear(), d.getMonth() + 1, Math.min(c.diaVencimento, new Date(d.getFullYear(), d.getMonth() + 2, 0).getDate()));
+    const iso = Domain.proximoVencimento(c, hoje), dt = new Date(iso + "T00:00");
     return { c, dt, dias: Math.round((dt - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000) };
   }).filter(x => x.dias <= 10).sort((a, b) => a.dias - b.dias);
   // tráfego do mês anterior (o mês a relatar)
@@ -138,7 +137,7 @@ function miniCalendario(tarefas, ativos, posts) {
   const [y, m] = mes.split("-").map(Number);
   const last = new Date(y, m, 0).getDate(), first = new Date(y, m - 1, 1).getDay();
   const comTarefa = new Set(tarefas.filter(t => !t.feita && t.data && t.data.startsWith(mes)).map(t => t.data));
-  const comVenc = new Set(ativos.filter(c => c.diaVencimento).map(c => `${mes}-${String(Math.min(c.diaVencimento, last)).padStart(2, "0")}`));
+  const comVenc = new Set(ativos.filter(c => c.diaVencimento).map(c => { const p = Domain.primeiroVencimento(c), dt = `${mes}-${String(Math.min(c.diaVencimento, last)).padStart(2, "0")}`; return p && dt < p ? null : dt; }).filter(Boolean));
   const comPost = new Set((posts || []).filter(p => p.data && p.data.startsWith(mes)).map(p => p.data));
   const cells = [];
   for (let i = 0; i < first; i++) cells.push(h("span", { class: "mc-cell empty" }));
