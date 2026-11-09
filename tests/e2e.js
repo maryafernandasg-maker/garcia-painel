@@ -77,7 +77,7 @@ let pass = 0, fail = 0; const ok = (n, c) => { c ? pass++ : fail++; console.log(
   for (const v of ['dias', 'campanhas', 'conjuntos', 'anuncios', 'analise', 'lancamentos', 'relatorios', 'historico', 'conexoes', 'visao']) { await p.evaluate(x => go(x), v); await W(150); }
   ok('todas as telas de tráfego abrem sem cliente', (await p.textContent('#view')).includes('Dashboard') && errs.length === 0);
   await p.selectOption('#clientSelect', { label: 'Silvia Salgados' }); await W(300);
-  await p.evaluate(() => go('conjuntos')); await W(300);
+  await p.evaluate(() => { UI.comp = '2026-09'; go('conjuntos'); }); await W(300);
   ok('dados persistem após recarregar', (await p.textContent('#view')).includes('[ADV]'));
   await p.click('.dash-tabs >> text=Anúncios'); await W(300);
   await p.screenshot({ path: OUT + '/03-anuncios.png', fullPage: true });

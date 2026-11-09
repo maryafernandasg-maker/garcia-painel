@@ -72,6 +72,8 @@ function notaPeriodo(cur, prev, linhasCur, linhasPrev) {
    ENTRADA
    ===================================================================== */
 function viewVisaoGeral() {
+  // o dashboard abre no mês atual (dados sincronizados até ontem); depois respeita o período escolhido
+  if (!UI.dashIni) { UI.dashIni = true; UI.comp = Fmt.currentComp(); }
   if (Store.state.clientes == null || !dadosTrafegoProntos()) return [head("Tráfego pago", "Dashboard"), loadingPanel()];
   const c = clienteAtual();
   if (UI.visaoModo === "cliente" && c) {

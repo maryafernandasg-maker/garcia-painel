@@ -44,7 +44,9 @@ mes('clinica', C2, { investimentoCentavos: 200000, impressoes: 150000, alcance: 
   await p.route('**/fonts.g*/**', r => r.abort());
   await p.goto('http://localhost:8772/'); await p.evaluate(r => { localStorage.clear(); localStorage.setItem('fakeSupaRows', JSON.stringify(r)); }, rows); await p.reload(); await W(300);
   await p.fill('#lgEmail', 'marya@teste.com'); await p.fill('#lgSenha', 'senha123'); await p.click('.auth-form button'); await W(500);
-  await p.click('nav >> text=Dashboard'); await W(400);
+  await p.click('nav >> text=Dashboard'); await W(300);
+  ok('dashboard abre no mês atual', await p.evaluate(() => UI.comp === Fmt.currentComp()));
+  await p.evaluate(c => { UI.comp = c; render(); }, C2); await W(300);
   const T = async () => (await p.textContent('#view')).replace(/ /g, ' ');
   let v = await T();
   ok('dashboard com todos os clientes', v.includes('Faturamento × investimento × ROAS') && await p.locator('.dash-grid article.dcard').count() === 3);
