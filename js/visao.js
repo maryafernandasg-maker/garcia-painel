@@ -72,20 +72,18 @@ function notaPeriodo(cur, prev, linhasCur, linhasPrev) {
    ENTRADA
    ===================================================================== */
 function viewVisaoGeral() {
-  if (Store.state.clientes == null || !dadosTrafegoProntos()) return [head("Tráfego", "Visão geral"), loadingPanel()];
+  if (Store.state.clientes == null || !dadosTrafegoProntos()) return [head("Tráfego pago", "Dashboard"), loadingPanel()];
   const c = clienteAtual();
-  if (UI.visaoModo === "cliente" && c) return visaoCliente(c);
-  if (UI.visaoModo === "cliente") {
-    const idx = indiceTrafego(), lista = clientesTrafego(idx);
-    return [head("Tráfego", "Visão geral", "Escolha um cliente", modoVisao()),
-      lista.length ? h("div", { class: "panel" }, h("div", { class: "pick-list" }, lista.map(x => h("button", { type: "button", class: "pick", onclick: () => abrirCliente(x.id) }, h("strong", null, x.nome), h("span", null, [x.segmento, x.cidade].filter(Boolean).join(" · ") || "—")))))
-        : emptyPanel("Nenhum cliente de tráfego", "Cadastre um cliente com o serviço Tráfego pago.", h("button", { class: "btn btn-primary", type: "button", onclick: () => go("clientes") }, "Ir para Clientes"))];
+  if (UI.visaoModo === "cliente" && c) {
+    const plats = Domain.plataformasDe(c);
+    if (UI.dashPlat && !plats.includes(UI.dashPlat)) UI.dashPlat = null;
+    return [abasCliente(c), ...(UI.dashPlat ? visaoPlataforma(c, UI.dashPlat) : visaoCliente(c))];
   }
-  return visaoCarteira();
+  return viewDashboard();
 }
 function abrirCliente(id) {
-  UI.clienteId = id; Prefs.set("cliente", id); UI.visaoModo = "cliente"; Prefs.set("visaoModo", "cliente"); UI.tab = "resumo";
-  render(); window.scrollTo(0, 0);
+  UI.clienteId = id; Prefs.set("cliente", id); UI.visaoModo = "cliente"; Prefs.set("visaoModo", "cliente"); UI.tab = "resumo"; UI.dashPlat = null;
+  go("visao");
 }
 
 /* =====================================================================
@@ -176,7 +174,7 @@ function visaoCliente(c) {
   const K = Desempenho.consolidar(lc), P = lp.length ? Desempenho.consolidar(lp) : null;
   const aval = Desempenho.avaliar(K, c.metas, lc);
   const btnMetas = h("button", { class: "btn", type: "button", disabled: !canWrite(), onclick: () => openMetasForm(c) }, Object.values(c.metas || {}).some(Fmt.isNum) ? "Editar metas" : "Cadastrar metas");
-  const top = head("Tráfego · Visão geral", c.nome, [c.segmento, c.cidade, c.objetivo && Domain.OBJETIVOS[c.objetivo]].filter(Boolean).join(" · ") || null, [modoVisao(), btnMetas, periodPicker()]);
+  const top = head("Tráfego pago · Visão geral", c.nome, [c.segmento, c.cidade, c.objetivo && Domain.OBJETIVOS[c.objetivo]].filter(Boolean).join(" · ") || null, [btnMetas, periodPicker()]);
   if (!idx.rels.some(r => r.clienteId === c.id)) return [top, emptyPanel("Nenhum mês lançado para este cliente", "Lance os dados de pelo menos um mês para ver a visão geral.",
     h("button", { class: "btn btn-primary", type: "button", onclick: () => go("lancamentos") }, "Lançar dados do mês"))];
   if (!lc.length) return [top, ...notaPeriodo(cur, prev, lc, lp), emptyPanel(`Nenhum mês lançado em ${Fmt.periodLabel(cur)}`, "Escolha outro período ou lance os dados deste mês.",
@@ -189,6 +187,7 @@ function visaoCliente(c) {
       ...grupoKpis("Cliques e leads", ["cliquesLink", "ctr", "cpc", "conversas", "leadsForm", "cpl"], K, P, aval),
       ...grupoKpis("Conversão", ["taxaCliqueLead", "leadsQualificados", "vendas", "taxaLeadVenda", "custoVenda", "cac"], K, P, aval),
       ...grupoKpis("Retorno", ["receita", "faturamentoTotal", "participacao", "ticket", "roas", "lucro"], K, P, aval)),
+    Domain.plataformasDe(c).length > 1 ? comparaPlataformas(c) : null,
     h("div", { class: "funnel-grid" }, funilCliente(K, P), metasPanel(c, aval)),
     ...extras];
 }

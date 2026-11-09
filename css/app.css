@@ -803,3 +803,53 @@ h1{font-size:clamp(28px,3.6vw,38px);letter-spacing:-.025em}
 .plan-label{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--soft);margin-bottom:4px}
 .plan-head .actions-row{flex:none}
 .brand-name{font-size:23px}
+
+/* ---------- dashboard de tráfego ---------- */
+.sel-ordem{height:38px;padding:0 12px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--panel);color:var(--fg);font:inherit;font-size:14px}
+.dash-strip{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));background:var(--hero-a);color:#F3E5D1;border-radius:20px;padding:18px 6px;margin:0 0 18px}
+.dash-strip>div{padding:0 18px;border-right:1px solid rgba(243,229,209,.18);min-width:0}
+.dash-strip>div:last-child{border:0}
+.dash-strip span{display:block;font-size:12.5px;opacity:.78}
+.dash-strip b{display:block;font-size:clamp(20px,2vw,26px);font-weight:700;letter-spacing:-.02em;margin-top:4px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.dash-strip em{display:block;font-style:normal;font-size:12px;opacity:.85;margin-top:2px}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.dcard{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;min-width:0}
+.dcard.vazio{opacity:.82}
+.dcard-add{all:unset;box-sizing:border-box;cursor:pointer;border:1.5px dashed var(--line-strong);border-radius:20px;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:4px;min-height:240px;color:var(--muted)}
+.dcard-add:hover,.dcard-add:focus-visible{border-color:var(--accent);color:var(--fg)}
+.dcard-add .plus{font-size:30px;line-height:1;color:var(--accent)}
+.dcard-add strong{color:var(--fg);font-size:16px}
+.dcard-add span:last-child{font-size:13px}
+.dc-h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.dc-tags{display:flex;gap:6px;align-items:center}
+.tag-seg{font-size:11px;background:var(--hero-b);color:var(--hero-b-fg);border-radius:6px;padding:2px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+.rank{font-size:13px;font-weight:700;color:var(--soft)}
+.dc-n{font-size:20px;font-weight:700;letter-spacing:-.015em;margin:8px 0 4px;line-height:1.15}
+.dc-p{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.plat{font-size:11.5px;font-weight:700;border-radius:6px;padding:1px 7px;border:1px solid currentColor}
+.plat.meta{color:#1A6BDB}.plat.google{color:#22843D}
+.dc-m{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.dm{min-width:0}
+.dm span{display:block;font-size:11.5px;color:var(--muted)}
+.dm b{display:block;font-size:19px;font-weight:700;letter-spacing:-.015em;margin-top:2px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.dm.big b{font-size:21px}
+.dm b.na{color:var(--soft);font-weight:500}
+.dm small{font-size:11.5px;font-weight:600}
+.dm small.up{color:var(--ok)}.dm small.dn{color:var(--bad)}
+.pbar{display:flex;height:6px;border-radius:6px;overflow:hidden;background:var(--line);margin-top:14px}
+.pbar i{display:block;height:100%}
+.pbar i.meta{background:#1A6BDB}.pbar i.google{background:#22843D}
+.pleg{display:flex;justify-content:space-between;font-size:11.5px;color:var(--soft);margin-top:5px;gap:8px}
+.dash-cli{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
+.dash-cli-h{display:flex;flex-direction:column;gap:4px}
+.dash-cli-h .back{align-self:flex-start;font-weight:600}
+.dash-cli-n{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.dash-cli-n strong{font-size:15px}
+.dash-tabs{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line);scrollbar-width:thin}
+.dash-tabs button{all:unset;cursor:pointer;padding:10px 14px;font-size:14.5px;color:var(--muted);white-space:nowrap;border-bottom:3px solid transparent}
+.dash-tabs button:hover{color:var(--fg)}
+.dash-tabs button[aria-current="page"]{color:var(--fg);font-weight:700;border-bottom-color:var(--accent)}
+.dash-tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+table.vs td:first-child{color:var(--muted)}
+@media (max-width:1100px){.dash-strip{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:16px}.dash-strip>div:nth-child(3){border:0}}
+@media (max-width:620px){.dash-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.dash-strip>div{border:0}.dash-grid{grid-template-columns:minmax(0,1fr)}}

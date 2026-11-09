@@ -732,6 +732,9 @@ const Domain = (() => {
   };
   const STATUS = { ativo: "Ativo", pausado: "Pausado", encerrado: "Encerrado" };
   const SERVICOS = { trafego: "Tráfego pago", social: "Social media" };
+  const PLATAFORMAS = { meta: "Meta Ads", google: "Google Ads" };
+  /** Plataformas de anúncio do cliente (padrão: só Meta) */
+  const plataformasDe = c => (c && Array.isArray(c.plataformas) && c.plataformas.length ? c.plataformas.filter(p => PLATAFORMAS[p]) : ["meta"]);
   const COBRANCA = { pre: "Pré-pago (paga no mês do serviço)", pos: "Pós-pago (paga no mês seguinte ao serviço)" };
   const _addMes = (comp, n) => { const [y, m] = comp.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
   const _diaEm = (comp, dia) => { const [y, m] = comp.split("-").map(Number); return `${comp}-${String(Math.min(dia, new Date(Date.UTC(y, m, 0)).getUTCDate())).padStart(2, "0")}`; };
@@ -1005,10 +1008,15 @@ const Domain = (() => {
     if (telefone && !/^[\d\s()+-]{8,30}$/.test(telefone)) errors.telefone = "Use só números, espaços, parênteses e traço.";
     const email = String(input.email ?? "").trim().slice(0, 120);
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "E-mail inválido.";
+    const plataformas = [...new Set((Array.isArray(input.plataformas) ? input.plataformas : []).filter(p => PLATAFORMAS[p]))];
+    const metaContaId = String(input.metaContaId ?? "").trim().replace(/^act_/i, "");
+    if (metaContaId && !/^\d{5,25}$/.test(metaContaId)) errors.metaContaId = "Use só os números do ID da conta (ex.: 2003681806971417).";
+    const googleContaId = String(input.googleContaId ?? "").trim();
+    if (googleContaId && !/^\d{3}-?\d{3}-?\d{4}$/.test(googleContaId)) errors.googleContaId = "Use o formato 123-456-7890.";
     const ok = Object.keys(errors).length === 0;
     return {
       ok, errors,
-      data: ok ? { nome, segmento: segmento || null, cidade: cidade || null, objetivo, status,
+      data: ok ? { plataformas: plataformas.length ? plataformas : null, metaContaId: metaContaId || null, googleContaId: googleContaId ? googleContaId.replace(/^(\d{3})-?(\d{3})-?(\d{4})$/, "$1-$2-$3") : null, nome, segmento: segmento || null, cidade: cidade || null, objetivo, status,
         ticketMedioCentavos: ticket.value, inicioGestao: inicio, observacoes: observacoes || null, moeda: "BRL", schema: SCHEMA,
         servicos, mensalidadeCentavos: mens.value, diaVencimento: venc ? Number(venc) : null, instagram: instagram || null,
         contatoNome: contatoNome || null, telefone: telefone || null, email: email || null, interno: !!input.interno, cobranca: input.cobranca === "pos" ? "pos" : "pre" } : null,
@@ -1024,7 +1032,7 @@ const Domain = (() => {
   }
 
   return { SERVICOS, VARIAVEIS, STATUS_TESTE, STATUS_ACAO, validateAcoes, SCHEMA, OBJETIVOS, STATUS, OBJ_META, STATUS_CAMP, TIPOS, TIPOS_CURTO, FORMATOS, ATRIBUICAO, TIPO_PADRAO,
-    COLLECTIONS, DEPENDENTES, AGENCIA, SPEC, flat, resolveOptions, parseFields, validate, validateCliente, COBRANCA, vencimentoDe, primeiroVencimento, proximoVencimento, relatorioId, criativoId, novoId, norm, tipoLabel, qtdTipo };
+    COLLECTIONS, DEPENDENTES, AGENCIA, SPEC, flat, resolveOptions, parseFields, validate, validateCliente, PLATAFORMAS, plataformasDe, COBRANCA, vencimentoDe, primeiroVencimento, proximoVencimento, relatorioId, criativoId, novoId, norm, tipoLabel, qtdTipo };
 })();
 
 /* =====================================================================

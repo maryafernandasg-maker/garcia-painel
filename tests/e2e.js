@@ -46,13 +46,13 @@ let pass = 0, fail = 0; const ok = (n, c) => { c ? pass++ : fail++; console.log(
   await p.click('.task input[type=checkbox]'); await W(300);
   ok('tarefa concluída sai da lista', (await p.textContent('.home-main')).includes('Tudo em dia'));
   // tráfego: importar mensal e diário
-  await p.click('nav >> text=Lançar dados do mês'); await W(150);
+  await p.evaluate(() => go('lancamentos')); await W(150);
   await p.selectOption('#compMes', '9'); await p.selectOption('#compAno', '2026'); await W(150);
   await p.click('text=Criar relatório de setembro de 2026'); await W(300);
   await p.setInputFiles('#metaCsv', path.join(__dirname, 'fixtures/meta-campanhas-set2026.csv')); await W(300);
   await p.click('.drawer .btn-primary'); await W(500);
   ok('campanhas importadas', (await p.textContent('tfoot')).includes('661,64'));
-  await p.click('nav >> text=Calendário diário'); await W(200);
+  await p.click('.dash-tabs >> text=Diário'); await W(200);
   await p.setInputFiles('#metaCsvDia2', path.join(__dirname, 'fixtures/meta-diario-anuncios-set-out2026.csv')); await W(300);
   await p.click('.drawer .btn-primary'); await W(1200);
   await p.click('.dialog .btn-primary').catch(() => {}); await W(200);
@@ -70,16 +70,16 @@ let pass = 0, fail = 0; const ok = (n, c) => { c ? pass++ : fail++; console.log(
   // persistência
   await p.reload(); await W(500);
   ok('continua logada após recarregar', !(await p.isVisible('#lgEmail')) && await p.isVisible('#side'));
-  await p.click('nav >> text=Visão geral'); await W(300);
-  ok('visão geral sem [object Object]', !(await p.textContent('#view')).includes('[object'));
+  await p.click('nav >> text=Dashboard'); await W(300);
+  ok('dashboard sem [object Object]', !(await p.textContent('#view')).includes('[object'));
+  ok('dashboard mostra o cartão da cliente', (await p.textContent('.dash-grid')).includes('Silvia Salgados'));
   await p.selectOption('#clientSelect', '__nenhum'); await W(200);
-  ok('visão geral com Nenhum mostra todos os clientes', (await p.textContent('#view')).includes('Todos os clientes') && (await p.textContent('#view')).includes('Silvia Salgados'));
-  for (const v of ['Visão geral', 'Calendário diário', 'Campanhas', 'Conjuntos de anúncios', 'Anúncios e criativos', 'Análise estratégica', 'Lançar dados do mês', 'Relatórios mensais', 'Histórico']) { await p.click(`nav >> text=${v}`); await W(150); }
-  ok('todas as telas de tráfego abrem sem cliente', (await p.textContent('#view')).includes('Nenhum cliente selecionado') && errs.length === 0);
+  for (const v of ['dias', 'campanhas', 'conjuntos', 'anuncios', 'analise', 'lancamentos', 'relatorios', 'historico', 'conexoes', 'visao']) { await p.evaluate(x => go(x), v); await W(150); }
+  ok('todas as telas de tráfego abrem sem cliente', (await p.textContent('#view')).includes('Dashboard') && errs.length === 0);
   await p.selectOption('#clientSelect', { label: 'Silvia Salgados' }); await W(300);
-  await p.click('nav >> text=Conjuntos de anúncios'); await W(300);
+  await p.evaluate(() => go('conjuntos')); await W(300);
   ok('dados persistem após recarregar', (await p.textContent('#view')).includes('[ADV]'));
-  await p.click('nav >> text=Anúncios e criativos'); await W(300);
+  await p.click('.dash-tabs >> text=Anúncios'); await W(300);
   await p.screenshot({ path: OUT + '/03-anuncios.png', fullPage: true });
   // backup
   await p.click('nav >> text=Dados e backup'); await W(200);

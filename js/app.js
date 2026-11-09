@@ -31,17 +31,19 @@ const SECTIONS = [
     { id: "producao", label: "Produção" },
     { id: "planejamento", label: "Planejamento do mês" },
   ]},
-  { group: "Tráfego", cliente: true, items: [
-    { id: "visao", label: "Visão geral" },
+  { group: "Tráfego pago", cliente: true, items: [
+    { id: "visao", label: "Dashboard" },
     { id: "otimizacoes", label: "Otimizações" },
-    { id: "dias", label: "Calendário diário" },
-    { id: "campanhas", label: "Campanhas" },
-    { id: "conjuntos", label: "Conjuntos de anúncios" },
-    { id: "anuncios", label: "Anúncios e criativos" },
-    { id: "analise", label: "Análise estratégica" },
-    { id: "lancamentos", label: "Lançar dados do mês" },
     { id: "relatorios", label: "Relatórios mensais" },
-    { id: "historico", label: "Histórico" },
+    { id: "conexoes", label: "Conexões" },
+    // abas do dashboard do cliente (fora do menu)
+    { id: "dias", label: "Diário", hidden: true },
+    { id: "campanhas", label: "Campanhas", hidden: true },
+    { id: "conjuntos", label: "Conjuntos", hidden: true },
+    { id: "anuncios", label: "Anúncios", hidden: true },
+    { id: "analise", label: "Análise", hidden: true },
+    { id: "lancamentos", label: "Lançar dados", hidden: true },
+    { id: "historico", label: "Histórico", hidden: true },
   ]},
   { group: "Sistema", items: [
     { id: "dados", label: "Dados e backup" },
@@ -100,6 +102,7 @@ const ICONES = {
   conjuntos: "M12 3l9 5-9 5-9-5zM3 13l9 5 9-5",
   anuncios: "M3 5h18v14H3zM3 15l5-5 4 4 3-3 6 6M15 9h.01",
   funil: "M3 4h18l-7 8v7l-4 2v-9z",
+  conexoes: "M9 15l6-6M10 6l1-1a4.2 4.2 0 0 1 6 6l-1 1M14 18l-1 1a4.2 4.2 0 0 1-6-6l1-1",
   otimizacoes: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
   analise: "M12 3a6 6 0 0 0-4 10.5V17h8v-3.5A6 6 0 0 0 12 3zM9 21h6",
   lancamentos: "M12 5v14M5 12h14",
@@ -127,8 +130,8 @@ function navBadge(id) {
 function renderNav() {
   document.getElementById("nav").replaceChildren(...SECTIONS.map(g => h("div", { class: "nav-group" },
     h("div", { class: "nav-label" }, g.group),
-    g.items.map(it => { const b = navBadge(it.id);
-      return h("a", { href: "#" + it.id, "aria-current": UI.view === it.id ? "page" : null, onclick: e => { e.preventDefault(); go(it.id); } },
+    g.items.filter(it => !it.hidden).map(it => { const b = navBadge(it.id);
+      return h("a", { href: "#" + it.id, "aria-current": UI.view === it.id || (it.id === "visao" && ROTAS_CLIENTE.includes(UI.view)) ? "page" : null, onclick: e => { e.preventDefault(); go(it.id); } },
         icone(it.id), h("span", { class: "nav-t" }, it.label), b ? h("span", { class: "nav-n" + (b.alerta ? " alerta" : ""), "aria-label": `${b.n} pendentes` }, String(b.n)) : null); }))));
 }
 function renderClientPicker() {
@@ -168,9 +171,10 @@ function render() {
   document.body.classList.toggle("auth", st === "login" || st === "config" || st === "connecting");
   if (st === "login" || st === "config" || st === "connecting") { renderAuth(st); return; }
   renderNav(); renderClientPicker(); syncWatches(); renderDbStatus(); renderUser();
-  const VIEWS = { inicio: viewInicio, comercial: viewComercial, financeiro: viewFinanceiro, processos: viewProcessos, social: viewSocial, producao: viewProducao, planejamento: viewPlanejamento, visao: viewVisaoGeral, otimizacoes: viewOtimizacoes, dias: viewDias, campanhas: viewCampanhasA, conjuntos: viewConjuntosA, anuncios: viewAnunciosA,
+  const VIEWS = { inicio: viewInicio, comercial: viewComercial, financeiro: viewFinanceiro, processos: viewProcessos, social: viewSocial, producao: viewProducao, planejamento: viewPlanejamento, visao: viewVisaoGeral, otimizacoes: viewOtimizacoes, conexoes: viewConexoes, dias: viewDias, campanhas: viewCampanhasA, conjuntos: viewConjuntosA, anuncios: viewAnunciosA,
     analise: viewAnalise, lancamentos: viewLancar, relatorios: viewRelatorios, historico: viewHistorico, clientes: viewClientes, dados: viewDados };
-  const body = (VIEWS[UI.view] || viewInicio)();
+  let body = (VIEWS[UI.view] || viewInicio)();
+  if (ROTAS_CLIENTE.includes(UI.view) && clienteAtual()) body = [abasCliente(clienteAtual()), ...[].concat(body)];
   document.getElementById("view").replaceChildren(...[dbBanner(), ...[].concat(body)].flat(Infinity).filter(Boolean));
 }
 function dbBanner() {
@@ -770,6 +774,13 @@ function openClienteForm(c) {
         field("mensalidade", "Mensalidade", h("div", { class: "prefix" }, h("span", null, "R$"), input("mensalidade", { type: "text", inputmode: "decimal", value: Fmt.moneyInput(v.mensalidadeCentavos), placeholder: "0,00" })), "Valor que o cliente paga por mês."),
         field("diaVencimento", "Dia do vencimento", input("diaVencimento", { type: "text", inputmode: "numeric", value: v.diaVencimento || "", placeholder: "Ex.: 10" }))),
       field("cobranca", "Forma de cobrança", select("cobranca", Domain.COBRANCA, v.cobranca || "pre"), "Pós-pago: o serviço de novembro vence no dia do vencimento de dezembro. A primeira cobrança é gerada só depois de um mês de trabalho."),
+      h("div", { class: "form-section" }, "Tráfego pago"),
+      h("div", { class: "field", id: "f-plataformas" }, h("span", { class: "flabel" }, "Plataformas de anúncio"),
+        h("div", { class: "checks" }, Object.entries(Domain.PLATAFORMAS).map(([k, l]) => h("label", { class: "check" }, h("input", { type: "checkbox", name: "plataformas", value: k, checked: Domain.plataformasDe(v).includes(k) }), h("span", null, l)))),
+        h("p", { class: "help" }, "O dashboard do cliente mostra só as plataformas marcadas.")),
+      h("div", { class: "grid2" },
+        field("metaContaId", "ID da conta do Meta", input("metaContaId", { type: "text", inputmode: "numeric", value: v.metaContaId || "", placeholder: "Ex.: 2003681806971417" }), "Gerenciador de Anúncios → menu de contas, número abaixo do nome."),
+        field("googleContaId", "ID da conta do Google Ads", input("googleContaId", { type: "text", value: v.googleContaId || "", placeholder: "123-456-7890" }), "No canto superior direito do Google Ads.")),
       h("div", { class: "form-section" }, "Contato"),
       h("div", { class: "grid2" },
         field("contatoNome", "Nome do contato", input("contatoNome", { type: "text", value: v.contatoNome || "", maxlength: 80 })),
@@ -783,7 +794,7 @@ function openClienteForm(c) {
   form.addEventListener("submit", async e => {
     e.preventDefault();
     if (!canWrite()) { formErr.hidden = false; formErr.textContent = "O banco não está disponível. Nada foi salvo."; return; }
-    const fd = new FormData(form); const raw = Object.fromEntries(fd.entries()); raw.servicos = fd.getAll("servicos"); raw.interno = fd.has("interno");
+    const fd = new FormData(form); const raw = Object.fromEntries(fd.entries()); raw.servicos = fd.getAll("servicos"); raw.plataformas = fd.getAll("plataformas"); raw.interno = fd.has("interno");
     const res = Domain.validateCliente(raw, Store.state.clientes || [], c?.id);
     form.querySelectorAll(".field").forEach(f => f.classList.remove("invalid"));
     form.querySelectorAll(".err").forEach(el => { el.hidden = true; el.textContent = ""; });
