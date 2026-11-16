@@ -11,16 +11,94 @@ const NOME_PLAT = { meta: "Meta", google: "Google" };
 UI.dashOrdem = Prefs.get("dashOrdem") || "receita";
 UI.dashPlat = null; // null = visão geral; "meta" | "google"
 
-/** Investimento por plataforma das linhas (campanhas sem plataforma contam como a principal do cliente) */
-function invPorPlataforma(c, comps, idx) {
-  idx = idx || indiceTrafego();
-  const plats = Domain.plataformasDe(c), padrao = plats.length === 1 ? plats[0] : "meta";
-  const out = { meta: 0, google: 0 };
-  for (const r of idx.rels.filter(r => r.clienteId === c.id && comps.includes(r.competencia))) {
-    const camps = idx.camps[r.id] || [];
-    if (camps.length) camps.forEach(k => { out[k.plataforma || padrao] += k.investimentoCentavos || 0; });
-    else out[padrao] += (r.resumo && r.resumo.investimentoCentavos) || 0;
+/* ---------- período do dashboard: por mês ou por dias (dados diários) ---------- */
+const PER_DASH = [["mes", "Por mês"], ["ontem", "Ontem"], ["7", "Últimos 7 dias"], ["14", "Últimos 14 dias"], ["30", "Últimos 30 dias"], ["estemes", "Este mês até ontem"], ["custom", "Personalizado"]];
+UI.dashPer = PER_DASH.some(p => p[0] === Prefs.get("dashPer")) ? Prefs.get("dashPer") : "mes";
+UI.dashDe = null; UI.dashAte = null;
+const padraoPlat = c => { const p = Domain.plataformasDe(c); return p.length === 1 ? p[0] : "meta"; };
+const diariasDe = c => (AG("diarios") || []).filter(d => d.clienteId === c.id).flatMap(d => d.linhas || []);
+/** Soma linhas diárias por plataforma + campanha */
+function campsDeLinhas(L, padrao) {
+  const m = new Map();
+  for (const l of L) {
+    const plat = l.plataforma || padrao, k = plat + "|" + l.campanha;
+    const a = m.get(k) || { nome: l.campanha, plataforma: plat, investimentoCentavos: 0, impressoes: 0, cliquesLink: 0, resultados: null, tipoResultado: null, tipoResultadoOutro: null, status: null };
+    a.investimentoCentavos += l.investimentoCentavos || 0; a.impressoes += l.impressoes || 0; a.cliquesLink += l.cliquesLink || 0;
+    if (Fmt.isNum(l.resultados)) { a.resultados = (a.resultados || 0) + l.resultados; a.tipoResultado = a.tipoResultado || l.tipoResultado; a.tipoResultadoOutro = a.tipoResultadoOutro || l.tipoResultadoOutro; }
+    m.set(k, a);
   }
+  return [...m.values()];
+}
+/** Uma linha do Desempenho a partir de campanhas somadas */
+function linhaDeCamps(c, camps, comp, ini, fim, com) {
+  const soma = k => camps.some(x => Fmt.isNum(x[k])) ? camps.reduce((s, x) => s + (x[k] || 0), 0) : null;
+  return Desempenho.linha({ comp, clienteId: c.id, resumo: { investimentoCentavos: soma("investimentoCentavos"), impressoes: soma("impressoes"), cliquesLink: soma("cliquesLink") },
+    com, campanhas: camps, metas: c.metas, periodoInicio: ini, periodoFim: fim });
+}
+/**
+ * Período escolhido no dashboard. Devolve funções para o período atual ("cur") e o de comparação ("prev"):
+ * linhas(c, q, plat?) → linhas do Desempenho; camps(c, q) → campanhas com plataforma.
+ */
+function periodoDash() {
+  if (UI.dashPer === "mes") {
+    const idx = indiceTrafego(), { cur, prev } = compsVisao();
+    const comps = q => q === "prev" ? prev : cur;
+    const relsDe = (c, q) => idx.rels.filter(r => r.clienteId === c.id && comps(q).includes(r.competencia)).sort((a, b) => a.competencia.localeCompare(b.competencia));
+    return {
+      modo: "mes", cur, prev, rotulo: Fmt.periodLabel(cur), rotuloPrev: Fmt.periodLabel(prev),
+      bounds: () => { const fim = Fmt.monthBounds(cur[cur.length - 1]).fim, ontem = Diario.add(Fmt.todayISO(), -1); return { ini: `${cur[0]}-01`, fim: fim < ontem ? fim : ontem }; },
+      linhas: (c, q, plat) => plat
+        ? relsDe(c, q).map(r => { const camps = (idx.camps[r.id] || []).filter(k => (k.plataforma || padraoPlat(c)) === plat); return camps.length ? linhaDeCamps(c, camps, r.competencia, r.periodoInicio, r.periodoFim) : null; }).filter(Boolean)
+        : linhasDe(c, comps(q), idx),
+      camps: (c, q) => relsDe(c, q).flatMap(r => {
+        const k = idx.camps[r.id] || [];
+        return k.length ? k.map(x => ({ ...x, plataforma: x.plataforma || padraoPlat(c) })) : [{ nome: "(resumo do mês)", plataforma: padraoPlat(c), investimentoCentavos: (r.resumo || {}).investimentoCentavos || 0, impressoes: (r.resumo || {}).impressoes || 0, cliquesLink: (r.resumo || {}).cliquesLink || 0, resultados: null, semDetalhe: true }];
+      }),
+    };
+  }
+  const ontem = Diario.add(Fmt.todayISO(), -1);
+  let ini, fim = ontem;
+  if (UI.dashPer === "ontem") ini = ontem;
+  else if (UI.dashPer === "7") ini = Diario.add(ontem, -6);
+  else if (UI.dashPer === "14") ini = Diario.add(ontem, -13);
+  else if (UI.dashPer === "30") ini = Diario.add(ontem, -29);
+  else if (UI.dashPer === "estemes") ini = ontem.slice(0, 8) + "01";
+  else { ini = UI.dashDe || Diario.add(ontem, -6); fim = UI.dashAte || ontem; if (fim < ini) [ini, fim] = [fim, ini]; }
+  const cmp = Diario.comparacao(ini, fim, "anterior");
+  const rng = q => q === "prev" ? cmp : { ini, fim };
+  const txt = (a, b) => a === b ? Fmt.date(a) : `${Fmt.date(a)} a ${Fmt.date(b)}`;
+  const doPeriodo = (c, q) => { const r = rng(q); return diariasDe(c).filter(l => l.data >= r.ini && l.data <= r.fim); };
+  return {
+    modo: "dias", ini, fim, rotulo: txt(ini, fim), rotuloPrev: txt(cmp.ini, cmp.fim), bounds: () => ({ ini, fim }),
+    linhas: (c, q, plat) => {
+      const r = rng(q); let L = doPeriodo(c, q);
+      if (plat) L = L.filter(l => (l.plataforma || padraoPlat(c)) === plat);
+      return L.length ? [linhaDeCamps(c, campsDeLinhas(L, padraoPlat(c)), r.fim.slice(0, 7), r.ini, r.fim)] : [];
+    },
+    camps: (c, q) => campsDeLinhas(doPeriodo(c, q), padraoPlat(c)),
+  };
+}
+/** Seletor de período do dashboard */
+function seletorPeriodo() {
+  const sel = h("select", { class: "sel-ordem", id: "dashPer", "aria-label": "Período", onchange: e => { UI.dashPer = e.target.value; Prefs.set("dashPer", UI.dashPer); render(); } },
+    PER_DASH.map(([v, l]) => h("option", { value: v, selected: UI.dashPer === v }, l)));
+  if (UI.dashPer === "mes") return [sel, periodPicker()];
+  if (UI.dashPer !== "custom") return [sel];
+  const ontem = Diario.add(Fmt.todayISO(), -1), P = periodoDash();
+  const dt = (id, l, v, set) => h("label", { class: "dt-in" }, h("span", null, l), h("input", { id, type: "date", value: v, max: ontem, onchange: e => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) { set(e.target.value); render(); } } }));
+  return [sel, dt("dashIni", "De", P.ini, v => { UI.dashDe = v; UI.dashAte = UI.dashAte || P.fim; }), dt("dashFim", "Até", P.fim, v => { UI.dashAte = v; UI.dashDe = UI.dashDe || P.ini; })];
+}
+/** Linha do período abaixo do título */
+function notaDash(P, lc, lp) {
+  const out = [h("p", { class: "period-note" }, `Período: ${P.rotulo} · comparado com ${P.rotuloPrev}${lp.length ? "" : " (sem dados)"}`)];
+  if (P.modo === "dias") out.push(h("p", { class: "period-note partial" }, "Período por dias: usa os dados diários do Meta e do Google. Faturamento, vendas, lucro e alcance são mensais e aparecem em “Por mês”."));
+  else if (lc.some(r => r.dias != null && r.dias < r.diasMes)) out.push(h("p", { class: "period-note partial" }, "Há mês parcial no período. Totais não são comparáveis com meses completos; compare taxas e custos. Metas de volume foram ajustadas aos dias lançados."));
+  return out;
+}
+/** Investimento por plataforma no período */
+function invPorPlataforma(c, P) {
+  const out = { meta: 0, google: 0 };
+  for (const k of P.camps(c, "cur")) out[k.plataforma] = (out[k.plataforma] || 0) + (k.investimentoCentavos || 0);
   return out;
 }
 const reais = v => v == null ? Fmt.NA : "R$ " + Fmt.integer(Math.round(v / 100));
@@ -29,18 +107,18 @@ const platTags = c => Domain.plataformasDe(c).map(p => h("span", { class: "plat 
 
 /* ---------- todos os clientes ---------- */
 function viewDashboard() {
-  const idx = indiceTrafego(), { cur, prev } = compsVisao();
+  const idx = indiceTrafego(), PER = periodoDash();
   const clientes = clientesTrafego(idx);
   const ordem = h("select", { class: "sel-ordem", "aria-label": "Ordenar clientes", onchange: e => { UI.dashOrdem = e.target.value; Prefs.set("dashOrdem", e.target.value); render(); } },
     [["receita", "Faturamento"], ["investimentoCentavos", "Investimento"], ["roas", "ROAS"], ["leads", "Leads"], ["nome", "Nome"]].map(([v, l]) => h("option", { value: v, selected: UI.dashOrdem === v }, `Ordenar: ${l}`)));
   const ultimaSync = clientes.map(c => c.sincronizadoEm).filter(Boolean).sort().pop();
-  const top = head("Tráfego pago", "Dashboard", `Faturamento × investimento × ROAS de todos os clientes${ultimaSync ? ` · última sincronização ${Fmt.datetime(ultimaSync)}` : ""}.`, [ordem, periodPicker()]);
+  const top = head("Tráfego pago", "Dashboard", `Faturamento × investimento × ROAS de todos os clientes${ultimaSync ? ` · última sincronização ${Fmt.datetime(ultimaSync)}` : ""}.`, [ordem, ...seletorPeriodo()]);
   if (!clientes.length) return [top, emptyPanel("Nenhum cliente de tráfego ainda", "Cadastre um cliente com o serviço Tráfego pago e conecte a conta de anúncios dele.",
     h("button", { class: "btn btn-primary", type: "button", onclick: () => go("clientes") }, "Ir para Clientes"))];
   const linhas = clientes.map(c => {
-    const lc = linhasDe(c, cur, idx), lp = linhasDe(c, prev, idx);
+    const lc = PER.linhas(c, "cur"), lp = PER.linhas(c, "prev");
     const K = Desempenho.consolidar(lc), P = lp.length ? Desempenho.consolidar(lp) : null;
-    return { c, lc, lp, K, P, aval: Desempenho.avaliar(K, c.metas, lc), plat: invPorPlataforma(c, cur, idx) };
+    return { c, lc, lp, K, P, aval: Desempenho.avaliar(K, c.metas, lc), plat: invPorPlataforma(c, PER) };
   });
   const comDados = linhas.filter(x => x.lc.length);
   const KT = Desempenho.consolidar(comDados.flatMap(x => x.lc), { carteira: true });
@@ -65,7 +143,7 @@ function viewDashboard() {
   });
   const cards = ord.map((x, i) => cardCliente(x, i + 1));
   const add = h("button", { type: "button", class: "dcard dcard-add", onclick: () => go("conexoes") }, h("span", { class: "plus", "aria-hidden": "true" }, "+"), h("strong", null, "Conectar conta de anúncios"), h("span", null, "Ligue a conta do Meta ou do Google a um cliente cadastrado"));
-  return [top, ...notaPeriodo(cur, prev, comDados.flatMap(x => x.lc), lpT), strip, h("div", { class: "dash-grid" }, cards, add),
+  return [top, ...notaDash(PER, comDados.flatMap(x => x.lc), lpT), strip, h("div", { class: "dash-grid" }, cards, add),
     h("p", { class: "table-note", style: "text-align:center" }, "Faturamento vem do que o cliente informa em Resultados comerciais. Investimento, leads e custos vêm do Meta e do Google.")];
 }
 function cardCliente(x, rank) {
@@ -107,21 +185,16 @@ function abasCliente(c) {
 
 /* ---------- aba de uma plataforma ---------- */
 function visaoPlataforma(c, plat) {
-  const idx = indiceTrafego(), { cur, prev } = compsVisao();
-  const plats = Domain.plataformasDe(c), padrao = plats.length === 1 ? plats[0] : "meta";
-  const linhasPlat = comps => idx.rels.filter(r => r.clienteId === c.id && comps.includes(r.competencia)).map(r => {
-    const camps = (idx.camps[r.id] || []).filter(k => (k.plataforma || padrao) === plat);
-    const soma = k => camps.some(x => Fmt.isNum(x[k])) ? camps.reduce((s, x) => s + (x[k] || 0), 0) : null;
-    return { camps, linha: Desempenho.linha({ comp: r.competencia, clienteId: c.id, resumo: { investimentoCentavos: soma("investimentoCentavos"), impressoes: soma("impressoes"), cliquesLink: soma("cliquesLink") }, campanhas: camps, periodoInicio: r.periodoInicio, periodoFim: r.periodoFim }) };
-  }).filter(x => x.camps.length);
-  const lc = linhasPlat(cur), lp = linhasPlat(prev);
-  const K = Desempenho.consolidar(lc.map(x => x.linha)), P = lp.length ? Desempenho.consolidar(lp.map(x => x.linha)) : null;
-  const top = head(`Tráfego pago · ${Domain.PLATAFORMAS[plat]}`, c.nome, null, periodPicker());
-  if (!lc.length) return [top, emptyPanel(`Sem campanhas do ${Domain.PLATAFORMAS[plat]} em ${Fmt.periodLabel(cur)}`,
+  const PER = periodoDash();
+  const lc = PER.linhas(c, "cur", plat), lp = PER.linhas(c, "prev", plat);
+  const K = Desempenho.consolidar(lc), P = lp.length ? Desempenho.consolidar(lp) : null;
+  const top = head(`Tráfego pago · ${Domain.PLATAFORMAS[plat]}`, c.nome, null, seletorPeriodo());
+  if (!lc.length) return [top, ...notaDash(PER, lc, lp), emptyPanel(`Sem campanhas do ${Domain.PLATAFORMAS[plat]} em ${PER.rotulo}`,
     plat === "google" ? "Os dados do Google Ads chegam pela sincronização automática depois que a conta for autorizada." : "Os dados chegam pela sincronização automática ou pelo lançamento do mês.")];
-  const camps = Object.values(lc.flatMap(x => x.camps).reduce((m, k) => { const a = m[k.nome] ||= { nome: k.nome, inv: 0, imp: 0, cli: 0, res: 0, tipo: k.tipoResultado, status: k.status }; a.inv += k.investimentoCentavos || 0; a.imp += k.impressoes || 0; a.cli += k.cliquesLink || 0; a.res += k.resultados || 0; return m; }, {})).sort((a, b) => b.inv - a.inv);
+  const campsPlat = PER.camps(c, "cur").filter(k => k.plataforma === plat && !k.semDetalhe);
+  const camps = Object.values(campsPlat.reduce((m, k) => { const a = m[k.nome] ||= { nome: k.nome, inv: 0, imp: 0, cli: 0, res: 0, tipo: k.tipoResultado, status: k.status }; a.inv += k.investimentoCentavos || 0; a.imp += k.impressoes || 0; a.cli += k.cliquesLink || 0; a.res += k.resultados || 0; return m; }, {})).sort((a, b) => b.inv - a.inv);
   const ST = { ACTIVE: ["Ativa", "ok"], PAUSED: ["Pausada", "perto"], CAMPAIGN_PAUSED: ["Pausada", "perto"], WITH_ISSUES: ["Com problema", "fora"], IN_PROCESS: ["Agendada", "sem"] };
-  return [top, ...notaPeriodo(cur, prev, lc.map(x => x.linha), lp.map(x => x.linha)),
+  return [top, ...notaDash(PER, lc, lp),
     h("div", { class: "panel panel-pad" }, ...grupoKpis(Domain.PLATAFORMAS[plat], ["investimentoCentavos", "impressoes", "cliquesLink", "ctr", "cpc", "cpm"], K, P, []),
       ...grupoKpis("Resultados", plat === "google" ? ["leads", "cpl", "taxaCliqueLead"] : ["conversas", "leadsForm", "leads", "cpl", "taxaCliqueLead"], K, P, [])),
     h("div", { class: "panel" }, h("div", { class: "tab-bar" }, h("p", null, h("strong", null, "Campanhas. "), `${camps.length} no período, da que mais investiu para a que menos investiu.`)),
@@ -135,10 +208,8 @@ function visaoPlataforma(c, plat) {
 
 /** Meta × Google lado a lado (visão geral de quem usa as duas) */
 function comparaPlataformas(c) {
-  const idx = indiceTrafego(), { cur } = compsVisao();
   const tot = { meta: { inv: 0, imp: 0, cli: 0, leads: 0 }, google: { inv: 0, imp: 0, cli: 0, leads: 0 } };
-  for (const r of idx.rels.filter(r => r.clienteId === c.id && cur.includes(r.competencia)))
-    for (const k of idx.camps[r.id] || []) { const t = tot[k.plataforma || "meta"]; if (!t) continue; t.inv += k.investimentoCentavos || 0; t.imp += k.impressoes || 0; t.cli += k.cliquesLink || 0; if (["conversas", "leads"].includes(k.tipoResultado)) t.leads += k.resultados || 0; }
+  for (const k of periodoDash().camps(c, "cur")) { const t = tot[k.plataforma]; if (!t) continue; t.inv += k.investimentoCentavos || 0; t.imp += k.impressoes || 0; t.cli += k.cliquesLink || 0; if (["conversas", "leads"].includes(k.tipoResultado)) t.leads += k.resultados || 0; }
   if (!tot.meta.inv && !tot.google.inv) return null;
   const linha = (l, f) => h("tr", null, h("td", null, l), h("td", { class: "num" }, f(tot.meta)), h("td", { class: "num" }, f(tot.google)));
   const div = (a, b, m) => b ? a / b * (m || 1) : null;

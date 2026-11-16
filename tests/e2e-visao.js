@@ -36,9 +36,15 @@ mes('silvia', C2, { investimentoCentavos: 120000, impressoes: 80000, alcance: 30
   [{ nome: 'Mensagens', tipoResultado: 'conversas', resultados: 100, investimentoCentavos: 100000 }, { nome: 'Cadastro', tipoResultado: 'leads', resultados: 10, investimentoCentavos: 20000 }]);
 mes('clinica', C2, { investimentoCentavos: 200000, impressoes: 150000, alcance: 60000, cliquesLink: 1800, tipoResultado: 'conversas', resultados: 80 }, { vendasAtribuidas: 8, receitaAtribuidaCentavos: 960000 },
   [{ nome: 'Mensagens', plataforma: 'meta', tipoResultado: 'conversas', resultados: 80, investimentoCentavos: 120000, impressoes: 120000, cliquesLink: 1000, status: 'ACTIVE' }, { nome: '[PESQ] Estética Blumenau', plataforma: 'google', tipoResultado: 'leads', resultados: 40, investimentoCentavos: 80000, impressoes: 30000, cliquesLink: 800, status: 'ACTIVE' }]);
+const isoD = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const diaN = n => { const d = new Date(); d.setDate(d.getDate() + n); return isoD(d); };
+const linhasDia = [];
+for (let n = -10; n <= -1; n++) linhasDia.push({ data: diaN(n), plataforma: 'meta', campanha: 'Mensagens', investimentoCentavos: 1000, impressoes: 1000, cliquesLink: 20, resultados: 2, tipoResultado: 'conversas' });
+const porMes = {}; linhasDia.forEach(l => (porMes[l.data.slice(0, 7)] ||= []).push(l));
+Object.entries(porMes).forEach(([m, L]) => doc('diarios', `silvia_${m}`, { clienteId: 'silvia', competencia: m, linhas: L }));
 (async () => {
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1366, height: 900 } });
-  const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
+  const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message + ' @ ' + (e.stack || '').split('\n').slice(1, 8).join(' | ')));
   await p.route('**/supabase-js@*/**', r => r.fulfill({ path: path.join(__dirname, 'fake-supabase.js'), contentType: 'text/javascript' }));
   await p.route('**/pdfmake@*/**', r => r.fulfill({ body: 'window.pdfMake={}', contentType: 'text/javascript' }));
   await p.route('**/fonts.g*/**', r => r.abort());
@@ -62,6 +68,22 @@ mes('clinica', C2, { investimentoCentavos: 200000, impressoes: 150000, alcance: 
   await p.screenshot({ path: OUT + '/30-dashboard.png', fullPage: true });
   await p.selectOption('.sel-ordem', 'roas'); await W(200);
   ok('ordenar por ROAS', (await p.locator('.dash-grid article.dcard').first().textContent()).includes('Clínica Bella'));
+  // período por dias
+  await p.selectOption('#dashPer', '7'); await W(300);
+  ok('últimos 7 dias soma o diário (7 × R$ 10)', (await p.textContent('.dash-strip')).replace(/\u00a0/g, ' ').includes('R$ 70') && (await T()).includes('Período por dias'));
+  ok('7 dias: leads = 14', (await p.locator('article.dcard', { hasText: 'Silvia Salgados' }).textContent()).includes('14'));
+  await p.selectOption('#dashPer', 'custom'); await W(200);
+  await p.fill('#dashIni', diaN(-3)); await p.dispatchEvent('#dashIni', 'change'); await W(200);
+  ok('personalizado: 3 dias = R$ 30', (await p.textContent('.dash-strip')).replace(/\u00a0/g, ' ').includes('R$ 30'));
+  await p.selectOption('#dashPer', '7'); await W(200);
+  await p.locator('article.dcard', { hasText: 'Silvia Salgados' }).locator('text=Dashboard ›').click(); await W(400);
+  ok('cliente em 7 dias: CPL R$ 5,00', (await T()).includes('R$ 5,00') && (await T()).includes('Leads'));
+  await p.click('.page-head >> text=Gerar PDF do período'); await W(200);
+  ok('PDF do período com as datas dos 7 dias', (await p.textContent('.dialog h2')).includes(diaN(-7).split('-').reverse().join('/')) && (await p.textContent('.dialog h2')).includes(diaN(-1).split('-').reverse().join('/')));
+  await p.click('.dialog >> text=Cancelar'); await W(150);
+  await p.screenshot({ path: OUT + '/35-dash-7dias.png', fullPage: true });
+  await p.click('text=‹ Todos os clientes'); await W(300);
+  await p.selectOption('#dashPer', 'mes'); await W(300);
   // dashboard da Sílvia
   await p.locator('article.dcard', { hasText: 'Silvia Salgados' }).locator('text=Dashboard ›').click(); await W(400);
   const c = await T();

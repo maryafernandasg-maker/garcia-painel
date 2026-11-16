@@ -89,106 +89,30 @@ function abrirCliente(id) {
 }
 
 /* =====================================================================
-   TODOS OS CLIENTES
-   ===================================================================== */
-function visaoCarteira() {
-  const idx = indiceTrafego(), { cur, prev } = compsVisao();
-  const clientes = clientesTrafego(idx);
-  const top = head("Tráfego · Todos os clientes", "Visão geral", "Números somados de todos os clientes de tráfego no período.", [modoVisao(), periodPicker()]);
-  if (!clientes.length) return [top, emptyPanel("Nenhum cliente de tráfego ainda", "Cadastre um cliente com o serviço Tráfego pago e lance os dados do mês.",
-    h("button", { class: "btn btn-primary", type: "button", onclick: () => go("clientes") }, "Ir para Clientes"))];
-  const porCliente = clientes.map(c => {
-    const lc = linhasDe(c, cur, idx), lp = linhasDe(c, prev, idx);
-    const k = Desempenho.consolidar(lc), p = Desempenho.consolidar(lp);
-    return { c, lc, lp, k, p, aval: Desempenho.avaliar(k, c.metas, lc) };
-  });
-  const linhasCur = porCliente.flatMap(x => x.lc), linhasPrev = porCliente.flatMap(x => x.lp);
-  const K = Desempenho.consolidar(linhasCur, { carteira: true }), P = linhasPrev.length ? Desempenho.consolidar(linhasPrev, { carteira: true }) : null;
-  if (!linhasCur.length) return [top, ...notaPeriodo(cur, prev, linhasCur, linhasPrev), emptyPanel(`Nenhum mês lançado em ${Fmt.periodLabel(cur)}`, "Escolha outro período ou lance os dados do mês dos clientes.",
-    h("button", { class: "btn btn-primary", type: "button", onclick: () => go("lancamentos") }, "Lançar dados do mês"))];
-  const ativos = porCliente.filter(x => x.lc.length);
-  const cont = { ok: 0, perto: 0, fora: 0, sem: 0 };
-  ativos.forEach(x => cont[Desempenho.saude(x.aval)]++);
-  const resumoSaude = h("div", { class: "saude-row" }, h("span", { class: "saude-t" }, `${ativos.length} ${ativos.length === 1 ? "cliente" : "clientes"} com dados no período`),
-    ["ok", "perto", "fora", "sem"].filter(s => cont[s]).map(s => h("span", { class: "saude " + s }, h("i", { "aria-hidden": "true" }), `${cont[s]} ${SAUDE[s].toLowerCase()}`)));
-  return [top, ...notaPeriodo(cur, prev, linhasCur, linhasPrev),
-    h("div", { class: "panel panel-pad" }, resumoSaude,
-      ...grupoKpis("Resultado", ["investimentoCentavos", "receita", "roas", "faturamentoTotal", "participacao", "lucro"], K, P),
-      ...grupoKpis("Leads e vendas", ["leads", "cpl", "leadsQualificados", "vendas", "custoVenda", "cac"], K, P),
-      ...grupoKpis("Entrega", ["impressoes", "alcance", "cliquesLink", "ctr", "cpc", "cpm"], K, P)),
-    graficoCarteira(clientes, idx),
-    tabelaCarteira(porCliente)];
-}
-function graficoCarteira(clientes, idx) {
-  const comps = Fmt.compsUntil(UI.comp, 12);
-  const cons = comps.map(comp => { const ls = clientes.flatMap(c => linhasDe(c, [comp], idx)); return ls.length ? Desempenho.consolidar(ls, { carteira: true }) : null; });
-  const cs = getComputedStyle(document.documentElement), g = k => cs.getPropertyValue(k).trim();
-  const box = h("div", { class: "chart" });
-  const w = Math.max(320, Math.min(1100, (document.getElementById("view")?.clientWidth || 900) - 40));
-  box.append(svgNode(Charts.duplo({ labels: comps.map(Fmt.monthTiny), a: cons.map(k => k && k.investimentoCentavos.v), b: cons.map(k => k && k.receita.v), nomeA: "Investimento", nomeB: "Faturamento dos anúncios",
-    fmt: "moeda", width: w, height: 240, colors: { a: g("--hero-b"), b: g("--accent"), text: g("--fg"), muted: g("--soft"), grid: g("--line") }, font: "Bricolage Grotesque, sans-serif" })));
-  return h("div", { class: "panel panel-pad chart-panel" },
-    h("div", { class: "chart-head" }, h("h2", null, "Investimento × faturamento dos anúncios"),
-      h("div", { class: "legend" }, h("span", null, h("i", { class: "lg-a" }), "Investimento"), h("span", null, h("i", { class: "lg-b" }), "Faturamento dos anúncios"))),
-    box, h("p", { class: "chart-note" }, "Todos os clientes somados, mês a mês. O faturamento aparece quando os clientes informam as vendas em Resultados comerciais."));
-}
-function tabelaCarteira(porCliente) {
-  const cols = [
-    { k: "nome", l: "Cliente", get: x => x.c.nome },
-    { k: "saude", l: "Metas", get: x => ({ fora: 0, perto: 1, ok: 2, sem: 3 })[Desempenho.saude(x.aval)] },
-    { k: "investimentoCentavos", l: "Investimento", fmt: "moeda" },
-    { k: "varInv", l: "vs. anterior", get: x => { const vr = Metrics.variacao(x.k.investimentoCentavos.v, x.p.investimentoCentavos.v, 0); return vr ? vr.pct : null; } },
-    { k: "leads", l: "Leads", fmt: "int" }, { k: "cpl", l: "CPL", fmt: "moeda" }, { k: "ctr", l: "CTR", fmt: "pct" }, { k: "cpm", l: "CPM", fmt: "moeda" },
-    { k: "vendas", l: "Vendas", fmt: "int" }, { k: "receita", l: "Faturamento", fmt: "moeda" }, { k: "roas", l: "ROAS", fmt: "x" },
-  ];
-  const val = (x, col) => col.get ? col.get(x) : x.k[col.k] ? x.k[col.k].v : null;
-  const s = UI.cartSort, col = cols.find(c => c.k === s.k) || cols[2];
-  const rows = porCliente.slice().sort((a, b) => {
-    const va = val(a, col), vb = val(b, col);
-    if (va == null && vb == null) return a.c.nome.localeCompare(b.c.nome, "pt-BR");
-    if (va == null) return 1; if (vb == null) return -1;
-    return (typeof va === "string" ? va.localeCompare(vb, "pt-BR") : va - vb) * s.dir;
-  });
-  const th = c => h("th", { class: c.fmt || c.k === "varInv" ? "num" : null, "aria-sort": s.k === c.k ? (s.dir > 0 ? "ascending" : "descending") : null },
-    h("button", { type: "button", class: "sort", onclick: () => { UI.cartSort = { k: c.k, dir: s.k === c.k ? -s.dir : c.k === "nome" || c.k === "saude" ? 1 : -1 }; render(); } }, c.l, s.k === c.k ? (s.dir > 0 ? " ↑" : " ↓") : ""));
-  const body = rows.map(x => {
-    const sem = !x.lc.length;
-    return h("tr", { class: "row-link" + (sem ? " muted-row" : ""), tabindex: "0", onclick: () => abrirCliente(x.c.id), onkeydown: e => { if (e.key === "Enter") abrirCliente(x.c.id); } },
-      h("td", null, h("div", { class: "name" }, x.c.nome), h("div", { class: "sub" }, sem ? "Sem lançamento no período" : [x.c.segmento, x.lc.length > 1 ? `${x.lc.length} meses` : null].filter(Boolean).join(" · ") || "—")),
-      h("td", null, sem ? h("span", { class: "na" }, "—") : saudeTag(x.aval)),
-      ...cols.slice(2).map(c => {
-        if (c.k === "varInv") { const v = val(x, c); return h("td", { class: "num" }, v == null ? h("span", { class: "na" }, "—") : Fmt.signedPct(v)); }
-        const m = x.k[c.k], aval = x.aval.find(a => a.ind === c.k && (a.status === "fora" || a.status === "perto"));
-        return h("td", { class: "num" + (aval ? " cell-" + aval.status : ""), title: m && m.v == null ? m.m : aval ? `Meta ${Fmt.metric(c.fmt, aval.alvo)}` : null }, m && m.v != null ? Fmt.metric(c.fmt, m.v) : h("span", { class: "na" }, "—"));
-      }));
-  });
-  return h("div", { class: "panel" }, h("div", { class: "tab-bar" }, h("p", null, h("strong", null, "Clientes. "), "Clique em um cliente para abrir a visão geral dele. Clique no título da coluna para ordenar.")),
-    h("div", { class: "table-wrap" }, h("table", { class: "data carteira" }, h("thead", null, h("tr", null, cols.map(th))), h("tbody", null, body))),
-    h("p", { class: "table-note" }, "Metas: “Atenção” = até 15% fora da meta; “Fora da meta” = mais que isso. Passe o mouse sobre o selo para ver quais metas."));
-}
-
-/* =====================================================================
    POR CLIENTE
    ===================================================================== */
 function visaoCliente(c) {
-  const idx = indiceTrafego(), { cur, prev } = compsVisao();
-  const lc = linhasDe(c, cur, idx), lp = linhasDe(c, prev, idx);
+  const idx = indiceTrafego(), PER = periodoDash();
+  const lc = PER.linhas(c, "cur"), lp = PER.linhas(c, "prev");
   const K = Desempenho.consolidar(lc), P = lp.length ? Desempenho.consolidar(lp) : null;
   const aval = Desempenho.avaliar(K, c.metas, lc);
   const btnMetas = h("button", { class: "btn", type: "button", disabled: !canWrite(), onclick: () => openMetasForm(c) }, Object.values(c.metas || {}).some(Fmt.isNum) ? "Editar metas" : "Cadastrar metas");
-  const top = head("Tráfego pago · Visão geral", c.nome, [c.segmento, c.cidade, c.objetivo && Domain.OBJETIVOS[c.objetivo]].filter(Boolean).join(" · ") || null, [btnMetas, periodPicker()]);
-  if (!idx.rels.some(r => r.clienteId === c.id)) return [top, emptyPanel("Nenhum mês lançado para este cliente", "Lance os dados de pelo menos um mês para ver a visão geral.",
+  const temDiario = diariasDe(c).length > 0;
+  const btnPdf = temDiario ? h("button", { class: "btn btn-primary", type: "button", onclick: () => { const b = PER.bounds(); UI.dCli = c.id; UI.dIni = b.ini; UI.dFim = b.fim; UI.calMes = b.fim.slice(0, 7); UI.pick = null; UI.dCamp = "todas"; openPdfPeriodo(c); } }, "Gerar PDF do período") : null;
+  const top = head("Tráfego pago · Visão geral", c.nome, [c.segmento, c.cidade, c.objetivo && Domain.OBJETIVOS[c.objetivo]].filter(Boolean).join(" · ") || null, [btnPdf, btnMetas, ...seletorPeriodo()]);
+  if (!idx.rels.some(r => r.clienteId === c.id) && !temDiario) return [top, emptyPanel("Nenhum dado deste cliente ainda", "Ligue a conta em Conexões ou lance os dados de um mês para ver a visão geral.",
     h("button", { class: "btn btn-primary", type: "button", onclick: () => go("lancamentos") }, "Lançar dados do mês"))];
-  if (!lc.length) return [top, ...notaPeriodo(cur, prev, lc, lp), emptyPanel(`Nenhum mês lançado em ${Fmt.periodLabel(cur)}`, "Escolha outro período ou lance os dados deste mês.",
-    h("button", { class: "btn btn-primary", type: "button", onclick: () => go("lancamentos") }, "Lançar dados do mês"))];
-  const extras = allLoaded() ? [evolucao(Fmt.compsUntil(UI.comp, 12)), leituraPanel(periodo(UI.comp, UI.dur).cons, prevConsLegado(), c)] : [];
-  return [top, ...notaPeriodo(cur, prev, lc, lp),
+  if (!lc.length) return [top, ...notaDash(PER, lc, lp), emptyPanel(`Sem dados em ${PER.rotulo}`, PER.modo === "dias" ? "Não há veiculação registrada nesses dias. Escolha outro período." : "Escolha outro período ou lance os dados deste mês.",
+    PER.modo === "dias" ? null : h("button", { class: "btn btn-primary", type: "button", onclick: () => go("lancamentos") }, "Lançar dados do mês"))];
+  const extras = PER.modo === "mes" && allLoaded() ? [evolucao(Fmt.compsUntil(UI.comp, 12)), leituraPanel(periodo(UI.comp, UI.dur).cons, prevConsLegado(), c)] : [];
+  const grupos = PER.modo === "dias"
+    ? [["Investimento", ["investimentoCentavos", "orcamentoDiario", "impressoes", "cpm", "cliquesLink", "ctr"]], ["Leads", ["cpc", "conversas", "leadsForm", "leads", "cpl", "taxaCliqueLead"]]]
+    : [["Investimento e alcance", ["investimentoCentavos", "orcamentoDiario", "alcance", "impressoes", "frequencia", "cpm"]], ["Cliques e leads", ["cliquesLink", "ctr", "cpc", "conversas", "leadsForm", "cpl"]],
+       ["Conversão", ["taxaCliqueLead", "leadsQualificados", "vendas", "taxaLeadVenda", "custoVenda", "cac"]], ["Retorno", ["receita", "faturamentoTotal", "participacao", "ticket", "roas", "lucro"]]];
+  return [top, ...notaDash(PER, lc, lp),
     h("div", { class: "panel panel-pad" },
       h("div", { class: "saude-row" }, saudeTag(aval), h("span", { class: "saude-t" }, aval.length ? resumoMetas(aval) : "Cadastre metas para acompanhar se o cliente está no alvo.")),
-      ...grupoKpis("Investimento e alcance", ["investimentoCentavos", "orcamentoDiario", "alcance", "impressoes", "frequencia", "cpm"], K, P, aval),
-      ...grupoKpis("Cliques e leads", ["cliquesLink", "ctr", "cpc", "conversas", "leadsForm", "cpl"], K, P, aval),
-      ...grupoKpis("Conversão", ["taxaCliqueLead", "leadsQualificados", "vendas", "taxaLeadVenda", "custoVenda", "cac"], K, P, aval),
-      ...grupoKpis("Retorno", ["receita", "faturamentoTotal", "participacao", "ticket", "roas", "lucro"], K, P, aval)),
+      ...grupos.flatMap(([t, ks]) => grupoKpis(t, ks, K, P, aval))),
     Domain.plataformasDe(c).length > 1 ? comparaPlataformas(c) : null,
     h("div", { class: "funnel-grid" }, funilCliente(K, P), metasPanel(c, aval)),
     ...extras];
