@@ -314,6 +314,16 @@ async function mensalDeDiarios(c, comp, linhas) {
 }
 
 /* ---------- PDF de um período escolhido no calendário ---------- */
+/** Resultados por tipo (conversas, visitas ao perfil, leads...) com o investimento das campanhas de cada tipo */
+function porTipo(linhas) {
+  const m = {};
+  for (const l of linhas) if (l.tipoResultado && Fmt.isNum(l.resultados)) {
+    const k = l.tipoResultado === "outro" ? "outro:" + (l.tipoResultadoOutro || "") : l.tipoResultado;
+    const a = m[k] ||= { tipo: l.tipoResultado, outro: l.tipoResultadoOutro || null, qtd: 0, inv: 0 };
+    a.qtd += l.resultados; a.inv += l.investimentoCentavos || 0;
+  }
+  return Object.entries(m).map(([k, v]) => ({ k, ...v })).sort((a, b) => b.inv - a.inv);
+}
 function modeloPeriodo(c, comentario, comparar) {
   const L = linhasDiarias();
   const LF = UI.dCamp === "todas" ? L : L.filter(l => l.campanha === UI.dCamp);
@@ -327,6 +337,11 @@ function modeloPeriodo(c, comentario, comparar) {
     cur: Diario.resumo(atual, tipo), prev: comparar && prevL.length ? Diario.resumo(prevL, tipo) : null,
     cmp: comparar && prevL.length ? cmp : null, cmpModo: UI.dModo || "anterior",
     serie: Diario.serie(LF, UI.dIni, UI.dFim, tipo),
+    // alcance único do intervalo (vem pronto do Meta; só para todas as campanhas)
+    alcance: UI.dCamp === "todas" ? alcanceDe(c, UI.dIni, UI.dFim) : null,
+    alcancePrev: UI.dCamp === "todas" && comparar && prevL.length ? alcanceDe(c, cmp.ini, cmp.fim) : null,
+    dias: Diario.diff(UI.dIni, UI.dFim) + 1, diasPrev: Diario.diff(cmp.ini, cmp.fim) + 1,
+    tipos: porTipo(atual), tiposPrev: comparar && prevL.length ? porTipo(prevL) : null,
     campanhas: Diario.totaisCampanhas(atual).sort((a, b) => (b.investimentoCentavos || 0) - (a.investimentoCentavos || 0)),
     comentario: comentario || null, geradoEm: new Date(),
     instagram: (() => {

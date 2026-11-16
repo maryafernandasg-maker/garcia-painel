@@ -10,6 +10,7 @@ const srv = http.createServer((req, res) => {
   const f = path.join(ROOT, p); if (!f.startsWith(ROOT) || !fs.existsSync(f)) { res.statusCode = 404; return res.end(); }
   res.setHeader('content-type', types[path.extname(f)] || 'application/octet-stream'); res.end(fs.readFileSync(f));
 }).listen(8772);
+const PDFMAKE = '/tmp/claude-0/-home-claude/4df1c94e-940a-5836-aa39-6f6831511b00/scratchpad/npm/x/pdfmake-0.2.10/package/build/pdfmake.min.js';
 const W = ms => new Promise(r => setTimeout(r, ms));
 let pass = 0, fail = 0; const ok = (n, c) => { c ? pass++ : fail++; console.log((c ? '✓ ' : '✗ ') + n); };
 const pad = n => String(n).padStart(2, '0');
@@ -47,7 +48,7 @@ Object.entries(porMes).forEach(([m, L]) => doc('diarios', `silvia_${m}`, { clien
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1366, height: 900 } });
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message + ' @ ' + (e.stack || '').split('\n').slice(1, 8).join(' | ')));
   await p.route('**/supabase-js@*/**', r => r.fulfill({ path: path.join(__dirname, 'fake-supabase.js'), contentType: 'text/javascript' }));
-  await p.route('**/pdfmake@*/**', r => r.fulfill({ body: 'window.pdfMake={}', contentType: 'text/javascript' }));
+  await p.route('**/pdfmake@*/**', r => r.fulfill({ path: PDFMAKE, contentType: 'text/javascript' }));
   await p.route('**/fonts.g*/**', r => r.abort());
   await p.goto('http://localhost:8772/'); await p.evaluate(r => { localStorage.clear(); localStorage.setItem('fakeSupaRows', JSON.stringify(r)); }, rows); await p.reload(); await W(300);
   await p.fill('#lgEmail', 'marya@teste.com'); await p.fill('#lgSenha', 'senha123'); await p.click('.auth-form button'); await W(500);
@@ -82,7 +83,9 @@ Object.entries(porMes).forEach(([m, L]) => doc('diarios', `silvia_${m}`, { clien
   ok('alcance dos 7 dias vindo do Meta e frequência 2,00', (await T()).includes('3.500') && (await T()).includes('2,00'));
   await p.click('.page-head >> text=Gerar PDF do período'); await W(200);
   ok('PDF do período com as datas dos 7 dias', (await p.textContent('.dialog h2')).includes(diaN(-7).split('-').reverse().join('/')) && (await p.textContent('.dialog h2')).includes(diaN(-1).split('-').reverse().join('/')));
-  await p.click('.dialog >> text=Cancelar'); await W(150);
+  const dlP = p.waitForEvent('download'); await p.click('.dialog .btn-primary'); const dlf = await dlP; await dlf.saveAs(OUT + '/periodo-7dias.pdf'); await W(300);
+  const txtPdf = require('child_process').execSync(`pdftotext -layout ${OUT}/periodo-7dias.pdf -`).toString();
+  ok('PDF tem alcance, frequência e resultados por tipo', txtPdf.includes('Alcance') && txtPdf.includes('3.500') && txtPdf.includes('Frequência') && txtPdf.includes('Média investida por dia'));
   await p.screenshot({ path: OUT + '/35-dash-7dias.png', fullPage: true });
   await p.click('text=‹ Todos os clientes'); await W(300);
   await p.selectOption('#dashPer', 'mes'); await W(300);

@@ -213,8 +213,16 @@ const PdfReport = (() => {
     if (m.comentario) content.push({ stack: [sec(++n, "Comentários"), para(m.comentario)], unbreakable: true });
     const P = prev;
     const lbl = cmpTxt || "";
+    const V = v => ({ v: v == null ? null : v, m: v == null ? "não disponível" : null });
+    const freq = (imp, alc) => Fmt.isNum(imp) && alc ? imp / alc : null;
+    const media = (inv, d) => Fmt.isNum(inv) && d ? inv / d : null;
     const cells = [
       kpiCell("Investimento", cur.investimentoCentavos, P && P.investimentoCentavos, "moeda", 0, lbl),
+      kpiCell("Média investida por dia", V(media(cur.investimentoCentavos.v, m.dias)), P && V(media(P.investimentoCentavos.v, m.diasPrev)), "moeda", 0, lbl),
+      ...(m.alcance != null ? [
+        kpiCell("Alcance", V(m.alcance), P && m.alcancePrev != null ? V(m.alcancePrev) : null, "int", 1, lbl),
+        kpiCell("Frequência", V(freq(cur.impressoes.v, m.alcance)), P && m.alcancePrev != null ? V(freq(P.impressoes.v, m.alcancePrev)) : null, "dec", 0, lbl),
+      ] : []),
       kpiCell("Impressões", cur.impressoes, P && P.impressoes, "int", 1, lbl),
       kpiCell("Cliques no link", cur.cliquesLink, P && P.cliquesLink, "int", 1, lbl),
       kpiCell("CTR de link", cur.ctr, P && P.ctr, "pct", 1, lbl),
@@ -226,6 +234,18 @@ const PdfReport = (() => {
     content.push({ stack: [sec(++n, "Principais indicadores"), grid(cells, 3)], unbreakable: true },
       note((P ? `Comparação com ${m.cmpModo === "mes" ? "as mesmas datas do mês anterior" : "o período anterior de mesma duração"} (${m.cmp.ini === m.cmp.fim ? Fmt.date(m.cmp.ini) : Fmt.date(m.cmp.ini) + " a " + Fmt.date(m.cmp.fim)}). Verde indica melhora e vermelho piora; investimento não tem direção certa. ` : "Sem dados no período de comparação. ") +
         `O custo por ${um} considera só o investimento das campanhas que geram ${tipoCurto}${cur.investimentoTipo.v != null ? ` (${Fmt.money(cur.investimentoTipo.v)})` : ""}.`));
+    if (m.tipos && m.tipos.length > 1) {
+      const cellsT = [];
+      for (const t of m.tipos) {
+        const p0 = (m.tiposPrev || []).find(x => x.k === t.k);
+        const nome = Domain.tipoLabel(t.tipo, t.outro) || "Resultados";
+        const curto = (Domain.tipoLabel(t.tipo, t.outro, true) || "resultado").replace(/s$/, "");
+        cellsT.push(kpiCell(nome.replace(/^./, x => x.toUpperCase()), V(t.qtd), m.tiposPrev ? V(p0 ? p0.qtd : null) : null, "int", 1, lbl),
+          kpiCell(`Custo por ${curto}`, V(t.qtd ? t.inv / t.qtd : null), m.tiposPrev ? V(p0 && p0.qtd ? p0.inv / p0.qtd : null) : null, "moeda", -1, lbl));
+      }
+      content.push({ stack: [sec(++n, "Resultados por tipo"), grid(cellsT, 2)], unbreakable: true },
+        note("Cada tipo de resultado vem das campanhas otimizadas para ele. O custo divide o investimento dessas campanhas pela quantidade do tipo."));
+    }
     if (m.instagram) {
       const { A, B } = m.instagram;
       const cells = [
