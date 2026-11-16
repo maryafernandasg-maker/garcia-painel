@@ -106,7 +106,7 @@ function visaoCliente(c) {
     PER.modo === "dias" ? null : h("button", { class: "btn btn-primary", type: "button", onclick: () => go("lancamentos") }, "Lançar dados do mês"))];
   const extras = PER.modo === "mes" && allLoaded() ? [evolucao(Fmt.compsUntil(UI.comp, 12)), leituraPanel(periodo(UI.comp, UI.dur).cons, prevConsLegado(), c)] : [];
   const grupos = PER.modo === "dias"
-    ? [["Investimento", ["investimentoCentavos", "orcamentoDiario", "impressoes", "cpm", "cliquesLink", "ctr"]], ["Leads", ["cpc", "conversas", "leadsForm", "leads", "cpl", "taxaCliqueLead"]]]
+    ? [["Investimento e alcance", ["investimentoCentavos", "orcamentoDiario", "alcance", "impressoes", "frequencia", "cpm"]], ["Cliques e leads", ["cliquesLink", "ctr", "cpc", "conversas", "leadsForm", "cpl"]]]
     : [["Investimento e alcance", ["investimentoCentavos", "orcamentoDiario", "alcance", "impressoes", "frequencia", "cpm"]], ["Cliques e leads", ["cliquesLink", "ctr", "cpc", "conversas", "leadsForm", "cpl"]],
        ["Conversão", ["taxaCliqueLead", "leadsQualificados", "vendas", "taxaLeadVenda", "custoVenda", "cac"]], ["Retorno", ["receita", "faturamentoTotal", "participacao", "ticket", "roas", "lucro"]]];
   return [top, ...notaDash(PER, lc, lp),

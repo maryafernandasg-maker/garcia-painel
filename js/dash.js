@@ -30,9 +30,9 @@ function campsDeLinhas(L, padrao) {
   return [...m.values()];
 }
 /** Uma linha do Desempenho a partir de campanhas somadas */
-function linhaDeCamps(c, camps, comp, ini, fim, com) {
+function linhaDeCamps(c, camps, comp, ini, fim, com, alcance) {
   const soma = k => camps.some(x => Fmt.isNum(x[k])) ? camps.reduce((s, x) => s + (x[k] || 0), 0) : null;
-  return Desempenho.linha({ comp, clienteId: c.id, resumo: { investimentoCentavos: soma("investimentoCentavos"), impressoes: soma("impressoes"), cliquesLink: soma("cliquesLink") },
+  return Desempenho.linha({ comp, clienteId: c.id, resumo: { investimentoCentavos: soma("investimentoCentavos"), impressoes: soma("impressoes"), cliquesLink: soma("cliquesLink"), alcance: Fmt.isNum(alcance) ? alcance : null },
     com, campanhas: camps, metas: c.metas, periodoInicio: ini, periodoFim: fim });
 }
 /**
@@ -73,11 +73,15 @@ function periodoDash() {
     linhas: (c, q, plat) => {
       const r = rng(q); let L = doPeriodo(c, q);
       if (plat) L = L.filter(l => (l.plataforma || padraoPlat(c)) === plat);
-      return L.length ? [linhaDeCamps(c, campsDeLinhas(L, padraoPlat(c)), r.fim.slice(0, 7), r.ini, r.fim)] : [];
+      // alcance único do intervalo: vem pronto do Meta (sincronização) para ontem, 7, 14 e 30 dias e o mês até ontem
+      const alc = !plat || plat === "meta" ? alcanceDe(c, r.ini, r.fim) : null;
+      return L.length ? [linhaDeCamps(c, campsDeLinhas(L, padraoPlat(c)), r.fim.slice(0, 7), r.ini, r.fim, null, alc)] : [];
     },
     camps: (c, q) => campsDeLinhas(doPeriodo(c, q), padraoPlat(c)),
   };
 }
+/** Alcance do Meta guardado para o intervalo exato (o alcance não é somável entre dias) */
+const alcanceDe = (c, ini, fim) => { const v = (c.alcances || {})[`${ini}_${fim}`]; return Fmt.isNum(v) ? v : null; };
 /** Seletor de período do dashboard */
 function seletorPeriodo() {
   const sel = h("select", { class: "sel-ordem", id: "dashPer", "aria-label": "Período", onchange: e => { UI.dashPer = e.target.value; Prefs.set("dashPer", UI.dashPer); render(); } },
@@ -91,7 +95,7 @@ function seletorPeriodo() {
 /** Linha do período abaixo do título */
 function notaDash(P, lc, lp) {
   const out = [h("p", { class: "period-note" }, `Período: ${P.rotulo} · comparado com ${P.rotuloPrev}${lp.length ? "" : " (sem dados)"}`)];
-  if (P.modo === "dias") out.push(h("p", { class: "period-note partial" }, "Período por dias: usa os dados diários do Meta e do Google. Faturamento, vendas, lucro e alcance são mensais e aparecem em “Por mês”."));
+  if (P.modo === "dias") out.push(h("p", { class: "period-note partial" }, "Período por dias: usa os dados diários do Meta e do Google. Faturamento, vendas e lucro são mensais e aparecem em “Por mês”. O alcance vem do Meta para Ontem, 7, 14 e 30 dias e Este mês até ontem (em datas personalizadas ele não é somável)."));
   else if (lc.some(r => r.dias != null && r.dias < r.diasMes)) out.push(h("p", { class: "period-note partial" }, "Há mês parcial no período. Totais não são comparáveis com meses completos; compare taxas e custos. Metas de volume foram ajustadas aos dias lançados."));
   return out;
 }

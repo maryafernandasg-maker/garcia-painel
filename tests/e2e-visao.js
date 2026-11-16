@@ -41,6 +41,7 @@ const diaN = n => { const d = new Date(); d.setDate(d.getDate() + n); return iso
 const linhasDia = [];
 for (let n = -10; n <= -1; n++) linhasDia.push({ data: diaN(n), plataforma: 'meta', campanha: 'Mensagens', investimentoCentavos: 1000, impressoes: 1000, cliquesLink: 20, resultados: 2, tipoResultado: 'conversas' });
 const porMes = {}; linhasDia.forEach(l => (porMes[l.data.slice(0, 7)] ||= []).push(l));
+rows.find(r => r.collection === 'clientes' && r.id === 'silvia').data.alcances = { [`${diaN(-7)}_${diaN(-1)}`]: 3500 };
 Object.entries(porMes).forEach(([m, L]) => doc('diarios', `silvia_${m}`, { clienteId: 'silvia', competencia: m, linhas: L }));
 (async () => {
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1366, height: 900 } });
@@ -77,7 +78,8 @@ Object.entries(porMes).forEach(([m, L]) => doc('diarios', `silvia_${m}`, { clien
   ok('personalizado: 3 dias = R$ 30', (await p.textContent('.dash-strip')).replace(/\u00a0/g, ' ').includes('R$ 30'));
   await p.selectOption('#dashPer', '7'); await W(200);
   await p.locator('article.dcard', { hasText: 'Silvia Salgados' }).locator('text=Dashboard ›').click(); await W(400);
-  ok('cliente em 7 dias: CPL R$ 5,00', (await T()).includes('R$ 5,00') && (await T()).includes('Leads'));
+  ok('cliente em 7 dias: CPL R$ 5,00', (await T()).includes('R$ 5,00') && (await T()).includes('Cliques e leads'));
+  ok('alcance dos 7 dias vindo do Meta e frequência 2,00', (await T()).includes('3.500') && (await T()).includes('2,00'));
   await p.click('.page-head >> text=Gerar PDF do período'); await W(200);
   ok('PDF do período com as datas dos 7 dias', (await p.textContent('.dialog h2')).includes(diaN(-7).split('-').reverse().join('/')) && (await p.textContent('.dialog h2')).includes(diaN(-1).split('-').reverse().join('/')));
   await p.click('.dialog >> text=Cancelar'); await W(150);
